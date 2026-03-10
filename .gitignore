@@ -1,0 +1,16 @@
+# Build output
+bin/
+
+# xreview session data
+.xreview/
+
+# Test binaries
+*.test
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
