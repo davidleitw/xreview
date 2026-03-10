@@ -3,6 +3,7 @@ package codex
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -94,10 +95,13 @@ func (r *runner) Exec(ctx context.Context, req ExecRequest) (*ExecResult, error)
 	}
 
 	if err != nil {
-		if ctx.Err() == context.DeadlineExceeded {
-			return result, fmt.Errorf("codex exec timed out after %s", req.Timeout)
+		if errors.Is(err, exec.ErrNotFound) {
+			return result, fmt.Errorf("codex CLI is not installed. Please install it: npm install -g @openai/codex")
 		}
-		return result, fmt.Errorf("codex exec failed: %w\nstderr: %s", err, strings.TrimSpace(stderr.String()))
+		if ctx.Err() == context.DeadlineExceeded {
+			return result, fmt.Errorf("codex did not respond within %s. The review may be too large or there may be a network issue. Try with --timeout <higher value> or fewer files", req.Timeout)
+		}
+		return result, fmt.Errorf("codex exited with error: %w\nstderr: %s", err, strings.TrimSpace(stderr.String()))
 	}
 
 	return result, nil

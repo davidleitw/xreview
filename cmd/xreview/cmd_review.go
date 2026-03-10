@@ -144,6 +144,8 @@ func splitTargets(s string) []string {
 func classifyReviewError(err error) string {
 	msg := err.Error()
 	switch {
+	case strings.Contains(msg, "codex CLI is not installed"):
+		return formatter.ErrCodexNotFound
 	case strings.Contains(msg, "session") && strings.Contains(msg, "not found"):
 		return formatter.ErrSessionNotFound
 	case strings.Contains(msg, "no files to review"):
@@ -152,9 +154,9 @@ func classifyReviewError(err error) string {
 		return formatter.ErrFileNotFound
 	case strings.Contains(msg, "not a git repository"):
 		return formatter.ErrNotGitRepo
-	case strings.Contains(msg, "timed out"):
+	case strings.Contains(msg, "did not respond within"):
 		return formatter.ErrCodexTimeout
-	case strings.Contains(msg, "parse"):
+	case strings.Contains(msg, "parse codex output"):
 		return formatter.ErrParseFailure
 	default:
 		return formatter.ErrCodexError
