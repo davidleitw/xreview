@@ -55,13 +55,12 @@ func newReviewCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := config.Load(flagWorkdir)
 			if err != nil {
-				fmt.Println(formatter.FormatError("review", formatter.ErrInvalidFlags, err.Error()))
-				return err
+				return printErr("review", formatter.ErrInvalidFlags, err)
 			}
 
 			builder, err := prompt.NewBuilder()
 			if err != nil {
-				return fmt.Errorf("init prompt builder: %w", err)
+				return printErr("review", formatter.ErrCodexError, err)
 			}
 
 			rev := reviewer.NewSingleReviewer(
@@ -74,7 +73,6 @@ func newReviewCmd() *cobra.Command {
 			)
 
 			if sessionID != "" {
-				// Resume/verify existing session
 				result, err := rev.Verify(cmd.Context(), reviewer.VerifyRequest{
 					SessionID:  sessionID,
 					Message:    message,
@@ -82,8 +80,7 @@ func newReviewCmd() *cobra.Command {
 					Timeout:    timeout,
 				})
 				if err != nil {
-					fmt.Println(formatter.FormatError("review", formatter.ErrCodexError, err.Error()))
-					return err
+					return printErr("review", classifyReviewError(err), err)
 				}
 				fmt.Println(formatter.FormatReviewResult(
 					result.SessionID, result.Round, result.Verdict,
@@ -109,8 +106,7 @@ func newReviewCmd() *cobra.Command {
 				Timeout:    timeout,
 			})
 			if err != nil {
-				fmt.Println(formatter.FormatError("review", formatter.ErrCodexError, err.Error()))
-				return err
+				return printErr("review", classifyReviewError(err), err)
 			}
 
 			fmt.Println(formatter.FormatReviewResult(
@@ -141,4 +137,32 @@ func splitTargets(s string) []string {
 		}
 	}
 	return targets
+}
+
+// classifyReviewError maps reviewer errors to the appropriate error code
+// so Claude Code can understand and relay the issue to the user.
+func classifyReviewError(err error) string {
+	msg := err.Error()
+	switch {
+	case strings.Contains(msg, "session") && strings.Contains(msg, "not found"):
+		return formatter.ErrSessionNotFound
+	case strings.Contains(msg, "no files to review"):
+		return formatter.ErrNoTargets
+	case strings.Contains(msg, "file not found") || strings.Contains(msg, "no such file"):
+		return formatter.ErrFileNotFound
+	case strings.Contains(msg, "not a git repository"):
+		return formatter.ErrNotGitRepo
+	case strings.Contains(msg, "timed out"):
+		return formatter.ErrCodexTimeout
+	case strings.Contains(msg, "parse"):
+		return formatter.ErrParseFailure
+	default:
+		return formatter.ErrCodexError
+	}
+}
+
+// printErr outputs a formatted XML error and returns the error for cobra.
+func printErr(action, code string, err error) error {
+	fmt.Println(formatter.FormatError(action, code, err.Error()))
+	return err
 }

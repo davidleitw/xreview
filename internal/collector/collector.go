@@ -101,7 +101,7 @@ func (c *collector) expandTargets(targets []string) ([]string, error) {
 
 		info, err := os.Stat(abs)
 		if err != nil {
-			return nil, fmt.Errorf("stat %s: %w", t, err)
+			return nil, fmt.Errorf("file not found: %s", t)
 		}
 
 		if !info.IsDir() {

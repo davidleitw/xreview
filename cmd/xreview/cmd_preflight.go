@@ -16,12 +16,20 @@ func newPreflightCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			checks := runPreflightChecks()
 
-			fmt.Println(formatter.FormatPreflightResult(checks))
-
+			allPassed := true
 			for _, c := range checks {
 				if !c.Passed {
-					return fmt.Errorf("preflight failed: %s — %s", c.Name, c.Detail)
+					allPassed = false
+					break
 				}
+			}
+
+			fmt.Println(formatter.FormatPreflightResult(checks))
+
+			if !allPassed {
+				// Return error so exit code is non-zero, but the XML output
+				// already contains all the detail Claude Code needs.
+				return fmt.Errorf("preflight checks failed")
 			}
 			return nil
 		},

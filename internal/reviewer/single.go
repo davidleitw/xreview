@@ -54,7 +54,7 @@ func (r *SingleReviewer) Review(ctx context.Context, req ReviewRequest) (*Review
 	// 2. Collect files
 	files, err := r.collector.Collect(ctx, req.Targets, req.TargetMode)
 	if err != nil {
-		return nil, fmt.Errorf("collect files: %w", err)
+		return nil, err
 	}
 
 	// 3. Build prompt
@@ -88,13 +88,13 @@ func (r *SingleReviewer) Review(ctx context.Context, req ReviewRequest) (*Review
 		Timeout:    timeout,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("codex exec: %w", err)
+		return nil, err
 	}
 
 	// 6. Parse response
 	codexResp, err := r.parser.Parse(execResult.Stdout)
 	if err != nil {
-		return nil, fmt.Errorf("parse response: %w", err)
+		return nil, fmt.Errorf("parse codex output: %w", err)
 	}
 
 	// 7. Update session
@@ -126,7 +126,7 @@ func (r *SingleReviewer) Verify(ctx context.Context, req VerifyRequest) (*Verify
 	// 2. Collect files
 	files, err := r.collector.Collect(ctx, sess.Targets, sess.TargetMode)
 	if err != nil {
-		return nil, fmt.Errorf("collect files: %w", err)
+		return nil, err
 	}
 
 	// 3. Build resume prompt
@@ -165,13 +165,13 @@ func (r *SingleReviewer) Verify(ctx context.Context, req VerifyRequest) (*Verify
 
 	execResult, err := r.runner.Exec(ctx, execReq)
 	if err != nil {
-		return nil, fmt.Errorf("codex exec: %w", err)
+		return nil, err
 	}
 
 	// 6. Parse response
 	codexResp, err := r.parser.Parse(execResult.Stdout)
 	if err != nil {
-		return nil, fmt.Errorf("parse response: %w", err)
+		return nil, fmt.Errorf("parse codex output: %w", err)
 	}
 
 	// 7. Merge findings
