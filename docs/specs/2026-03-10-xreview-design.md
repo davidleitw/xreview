@@ -41,9 +41,12 @@ Discover issues --> Guide fixes --> Verify corrections --> Generate report
 A human developer uses Claude Code to implement features. After completing a task,
 xreview (triggered via a Claude Code skill) collects the changed files, sends them
 to a local Codex process for review, parses the structured findings, and returns
-them to Claude Code. Claude Code then presents the findings to the user in plain
-language, fixes the code if approved, and calls xreview again to verify the fixes.
-This loop repeats until all findings are resolved or the user decides to stop.
+them to Claude Code. Claude Code then presents each finding to the user via
+`AskUserQuestion`, providing its own recommendation and always offering the option
+to not fix. After the user decides on each finding, Claude Code applies fixes and
+calls xreview again to verify. This loop repeats until all three parties — the
+**user (decision maker)**, **Claude Code (executor)**, and **Codex (reviewer)** —
+reach consensus, or the maximum round limit is reached.
 
 ### What xreview IS
 
@@ -507,13 +510,25 @@ The core command. Starts a new review or continues an existing session.
 ```bash
 # --- New review ---
 
-# Specify files explicitly
+# Single file
+xreview review --files src/auth.go \
+               --context "【變更類型】feature【描述】新增 JWT 認證【預期行為】登入回傳 15 分鐘過期 token"
+
+# Multiple files
 xreview review --files src/auth.go,src/middleware.go \
-               --context "Implemented JWT authentication system"
+               --context "【變更類型】feature【描述】JWT 認證系統【預期行為】middleware 驗證每個 request 的 token"
+
+# Directory (xreview auto-expands, respects ignore_patterns)
+xreview review --files src/ \
+               --context "【變更類型】refactor【描述】重構 auth 模組【預期行為】行為應與修改前一致"
+
+# Mixed files and directories
+xreview review --files src/auth.go,internal/ \
+               --context "..."
 
 # Review all uncommitted changes (staged + unstaged)
 xreview review --git-uncommitted \
-               --context "Added user registration endpoint"
+               --context "【變更類型】bugfix【描述】修復登入逾時問題【預期行為】token 過期後正確回傳 401"
 
 # --- Continue existing session ---
 
@@ -531,9 +546,9 @@ xreview review --session xr-20260310-a1b2c3 \
 
 | Flag | Required | Description |
 |---|---|---|
-| `--files <path1,path2,...>` | One of `--files` or `--git-uncommitted` | Comma-separated file paths to review |
+| `--files <path1,path2,...>` | One of `--files` or `--git-uncommitted` | Comma-separated file paths or directory paths. Directories are recursively expanded, respecting `ignore_patterns` in config. |
 | `--git-uncommitted` | One of `--files` or `--git-uncommitted` | Collect all uncommitted changes (staged + unstaged tracked files) |
-| `--context <text>` | No (recommended) | Natural language description of what was implemented. Helps codex understand intent. |
+| `--context <text>` | No (recommended) | Structured context from Claude Code describing the change. Skill guides Claude Code to include: change type (feature/refactor/bugfix), description, and expected behavior. Passed verbatim to codex prompt. |
 | `--timeout <seconds>` | No (default: 180) | Maximum time to wait for codex response |
 
 **Flags (continue session):**
@@ -550,7 +565,9 @@ xreview review --session xr-20260310-a1b2c3 \
 - `--files` and `--git-uncommitted` are mutually exclusive
 - `--files` and `--git-uncommitted` cannot be used with `--session`
 - `--message` and `--full-rescan` require `--session`
-- All files in `--files` must exist on disk
+- All paths in `--files` must exist on disk (files or directories)
+- Directories in `--files` are recursively expanded; files matching `ignore_patterns` are excluded
+- If a directory expands to zero files after filtering, emit `NO_TARGETS` error
 - `--git-uncommitted` requires being inside a git repository
 - `--session` ID must exist in `.xreview/sessions/`
 
@@ -680,18 +697,13 @@ These flags apply to all commands:
   config.json                          # Optional: project-level xreview configuration
   sessions/
     xr-20260310-a1b2c3/
-      session.json                     # Core session state
-      findings.json                    # Current findings with statuses
-      rounds/
-        round-001.json                 # Round metadata + findings snapshot
-        round-002.json
-      raw/
-        round-001-codex-stdout.txt     # Raw codex stdout (for debugging)
-        round-001-codex-stderr.txt     # Raw codex stderr (for debugging)
-        round-002-codex-stdout.txt
-        round-002-codex-stderr.txt
-      report.md                        # Generated report (after xreview report)
+      session.json                     # Session state + findings (single file, updated each round)
 ```
+
+**Simplified design:** Each session is a single `session.json` file that gets updated
+in-place each round. No per-round snapshots, no separate findings file. Codex retains
+full conversation memory via `--resume`, so xreview does not need to replay history
+from disk.
 
 ### Session ID Format
 
@@ -724,6 +736,9 @@ override config values. If it does not exist, built-in defaults are used.
 
 ### session.json
 
+A single file that contains both session metadata and current finding states.
+Updated in-place each round.
+
 ```json
 {
   "session_id": "xr-20260310-a1b2c3",
@@ -731,18 +746,37 @@ override config values. If it does not exist, built-in defaults are used.
   "created_at": "2026-03-10T14:30:00Z",
   "updated_at": "2026-03-10T14:45:00Z",
   "status": "in_review",
-  "current_round": 2,
+  "round": 2,
   "codex_session_id": "cs-xxxxxx",
   "codex_model": "gpt-5.4",
-  "context": "Implemented JWT authentication system",
+  "context": "【變更類型】feature【描述】JWT 認證系統【預期行為】登入回傳 15 分鐘過期 token",
   "targets": [
     "src/auth.go",
     "src/middleware.go"
   ],
   "target_mode": "files",
-  "config": {
-    "timeout": 180
-  }
+  "findings": [
+    {
+      "id": "F001",
+      "severity": "high",
+      "category": "security",
+      "status": "fixed",
+      "file": "src/auth.go",
+      "line": 42,
+      "description": "JWT token is not checked for expiration.",
+      "suggestion": "Add exp claim validation after jwt.Parse."
+    },
+    {
+      "id": "F002",
+      "severity": "medium",
+      "category": "logic",
+      "status": "dismissed",
+      "file": "src/middleware.go",
+      "line": 15,
+      "description": "Error returned without context wrapping.",
+      "suggestion": "Use fmt.Errorf(\"middleware auth: %w\", err)."
+    }
+  ]
 }
 ```
 
@@ -755,13 +789,13 @@ override config values. If it does not exist, built-in defaults are used.
 | `created_at` | ISO 8601 | When the session was created |
 | `updated_at` | ISO 8601 | When the session was last modified |
 | `status` | enum | Current session state (see state machine below) |
-| `current_round` | int | Current round number (1-indexed) |
+| `round` | int | Current round number (1-indexed) |
 | `codex_session_id` | string | Codex session ID for resume (null if not yet called) |
 | `codex_model` | string | Which codex model was used |
-| `context` | string | User-provided context about what was implemented |
+| `context` | string | Structured context from Claude Code (change type, description, expected behavior) |
 | `targets` | []string | Files being reviewed |
 | `target_mode` | string | How targets were specified: `"files"` or `"git-uncommitted"` |
-| `config` | object | Runtime config for this session |
+| `findings` | []Finding | Current finding states, updated in-place each round |
 
 ### Status Transitions
 
@@ -782,110 +816,18 @@ initialized --> in_review --> verifying
 | `verifying` | A resume/rescan round is in progress or completed | `verifying` (another round), `completed` (when `report` called) |
 | `completed` | Report generated, session finalized | (terminal state) |
 
-### findings.json
-
-```json
-{
-  "last_updated_round": 2,
-  "findings": [
-    {
-      "id": "F001",
-      "severity": "high",
-      "category": "security",
-      "status": "fixed",
-      "file": "src/auth.go",
-      "line": 42,
-      "description": "JWT token is not checked for expiration. An attacker could reuse expired tokens.",
-      "suggestion": "Add exp claim validation after jwt.Parse.",
-      "code_snippet": "token, err := jwt.Parse(rawToken, keyFunc)",
-      "first_seen_round": 1,
-      "last_updated_round": 2,
-      "history": [
-        {"round": 1, "status": "open", "note": "initial finding"},
-        {"round": 2, "status": "fixed", "note": "expiration check added at line 45"}
-      ]
-    },
-    {
-      "id": "F002",
-      "severity": "medium",
-      "category": "logic",
-      "status": "dismissed",
-      "file": "src/middleware.go",
-      "line": 15,
-      "description": "Error returned without context wrapping.",
-      "suggestion": "Use fmt.Errorf(\"middleware auth: %w\", err).",
-      "code_snippet": "return err",
-      "first_seen_round": 1,
-      "last_updated_round": 2,
-      "history": [
-        {"round": 1, "status": "open", "note": "initial finding"},
-        {"round": 2, "status": "dismissed", "note": "user says error is re-wrapped at caller level"}
-      ]
-    }
-  ],
-  "summary": {
-    "total": 2,
-    "open": 0,
-    "fixed": 1,
-    "dismissed": 1
-  }
-}
-```
-
 **Finding statuses:**
 
 | Status | Meaning |
 |---|---|
 | `open` | Issue identified, not yet addressed |
 | `fixed` | Codex verified the fix is correct |
-| `dismissed` | User decided not to fix (with reason tracked in history) |
+| `dismissed` | User decided not to fix (reason passed to codex via --message) |
 | `reopened` | Was fixed/dismissed but rescan found it still present |
 
-### round-NNN.json
-
-```json
-{
-  "round": 1,
-  "timestamp": "2026-03-10T14:30:05Z",
-  "action": "review",
-  "codex_session_id": "cs-xxxxxx",
-  "codex_resumed": false,
-  "full_rescan": false,
-  "user_message": null,
-  "targets_snapshot": ["src/auth.go", "src/middleware.go"],
-  "findings_before": {},
-  "findings_after": {
-    "total": 3, "open": 3, "fixed": 0, "dismissed": 0
-  },
-  "raw_stdout_path": "raw/round-001-codex-stdout.txt",
-  "raw_stderr_path": "raw/round-001-codex-stderr.txt",
-  "duration_ms": 8500
-}
-```
-
-For resume rounds:
-
-```json
-{
-  "round": 2,
-  "timestamp": "2026-03-10T14:42:00Z",
-  "action": "verify",
-  "codex_session_id": "cs-xxxxxx",
-  "codex_resumed": true,
-  "full_rescan": false,
-  "user_message": "Fixed the JWT expiration issue. The error wrapping one is a false positive.",
-  "targets_snapshot": ["src/auth.go", "src/middleware.go"],
-  "findings_before": {
-    "total": 3, "open": 3, "fixed": 0, "dismissed": 0
-  },
-  "findings_after": {
-    "total": 3, "open": 1, "fixed": 1, "dismissed": 1
-  },
-  "raw_stdout_path": "raw/round-002-codex-stdout.txt",
-  "raw_stderr_path": "raw/round-002-codex-stderr.txt",
-  "duration_ms": 6200
-}
-```
+Findings are stored directly in `session.json` and updated in-place each round.
+No separate `findings.json` or per-round snapshot files. Codex's `--resume` retains
+full conversation memory, so xreview does not need to maintain its own history.
 
 ---
 
@@ -911,6 +853,11 @@ This keeps the prompt focused on review instructions.
 5. If you find no issues, set verdict to APPROVED with an empty findings array.
 6. You are encouraged to read additional files in the repository if needed
    to understand the full context of the code being reviewed.
+7. Review comprehensively: security, correctness, readability, maintainability,
+   and extensibility. Do NOT limit your review to a single aspect.
+8. Suggestions MUST be scoped and actionable within the current change.
+   Do NOT suggest large-scale rewrites or architectural overhauls.
+   Focus on improvements that can be applied to the code being reviewed.
 </CRITICAL_RULES>
 
 You are a senior code reviewer. Analyze the following code changes for bugs,
@@ -1237,7 +1184,16 @@ err := cmd.Run()
 
 ### JSON Schema File
 
-xreview generates a temporary schema file before each codex call:
+The JSON schema is embedded in the Go binary via `//go:embed` and written to a
+temporary file (`os.TempDir()`) before each codex call. The temp file is deleted
+after codex returns. No schema files are stored in `.xreview/`.
+
+```go
+//go:embed schema/review.json
+var reviewSchemaBytes []byte
+```
+
+Schema content:
 
 ```json
 {
@@ -1278,8 +1234,8 @@ xreview generates a temporary schema file before each codex call:
 }
 ```
 
-The schema file is written to `.xreview/sessions/<id>/schema.json` and reused
-across rounds within the same session.
+The schema is global and shared across all sessions. It is embedded in the binary
+at build time and written to a temp file only for the duration of each codex call.
 
 ### Session ID Extraction
 
@@ -1315,9 +1271,9 @@ cmd := exec.CommandContext(ctx, "codex", "exec",
 **If resume fails (codex returns error or session expired):**
 
 1. xreview falls back to a fresh codex session
-2. The prompt includes full context from previous rounds (findings, file contents)
+2. The prompt includes full context from session.json (findings, file contents)
 3. This is less token-efficient but functionally equivalent
-4. The fallback is logged in round-NNN.json: `"codex_resumed": false, "resume_fallback_reason": "..."`
+4. The new codex session ID replaces the old one in session.json
 
 ### Timeout Handling
 
@@ -1408,54 +1364,61 @@ Parse the XML output:
   The error message is written for you to understand. Relay it to the user
   in natural language and suggest how to fix it. Stop.
 
-## Step 3: Determine review targets
+## Step 3: Determine review targets and assemble context
 
-Based on the current task context, determine which files to review:
+Based on the current task, determine which files to review:
 - If you just completed a plan with specific files changed, use --files with those paths.
+- If reviewing a whole directory, pass the directory path to --files (xreview expands it).
 - If unsure which files changed, use --git-uncommitted.
-- Write a brief --context describing what was implemented.
+
+Assemble a structured --context string describing the change:
+
+```
+【變更類型】feature | refactor | bugfix
+【描述】簡述做了什麼
+【預期行為】這段 code 應該達成什麼效果（refactor 則寫「行為應與修改前一致」）
+```
 
 ## Step 4: Run review
 
-Run: `xreview review --files <file1,file2,...> --context "<description>"`
- or: `xreview review --git-uncommitted --context "<description>"`
+Run: `xreview review --files <paths> --context "<structured context>"`
+ or: `xreview review --git-uncommitted --context "<structured context>"`
 
-## Step 5: Present findings
+## Step 5: Present findings and collect user decisions (Three-Party Consensus)
 
-Parse the XML output. For each <finding>, present it to the user in plain language:
-
-"Found {N} issues:
- - {SEVERITY} {file}:{line} - {description}
- - ..."
+Parse the XML output.
 
 If verdict is APPROVED (zero findings): tell the user "No issues found." Skip to Step 8.
 
-Ask the user: "Fix these? (y/n)"
+For EACH finding, use AskUserQuestion to ask the user individually:
+- Explain the finding in plain language (NOT raw XML)
+- Provide YOUR (Claude Code) recommendation and reasoning
+- Present options — **MUST always include "don't fix"**:
+  (a) Fix as suggested — describe how you would fix it
+  (b) Fix differently — ask user to explain their preferred approach
+  (c) Don't fix — ask user for a brief reason (will be passed to codex for evaluation)
 
-## Step 6: Address findings (multi-round)
+## Step 6: Apply fixes
 
-For each finding, YOU (Claude Code) decide one of:
-a) Fix it yourself — read the file, understand the suggestion, apply the fix.
-b) Disagree with codex — include your reasoning in the --message for the next round.
-   Codex will re-evaluate. This enables multi-round discussion between you and codex.
-c) Skip it — tell the user why you think it's not worth fixing.
+After collecting all user decisions:
+1. Apply the agreed fixes to the code.
+2. Track what was fixed, what was dismissed, and the reasons for each.
 
-Keep track of what you fixed, disagreed with, and skipped.
+## Step 7: Verify fixes (Three-Party Consensus Loop)
 
-## Step 7: Verify fixes
-
-After addressing findings, run:
-`xreview review --session <session-id> --message "<what you fixed, disagreed with, or skipped>"`
+After applying fixes, run:
+`xreview review --session <session-id> --message "<summary of what was fixed, dismissed, and reasons>"`
 
 Parse the XML output:
-- Show updated finding statuses to the user.
-- If codex and you still disagree on something, you can continue the discussion
-  in the next --message. This is a conversation between two agents.
-- If there are still open findings, go back to Step 5.
-- If all findings are resolved (fixed + dismissed), proceed to Step 8.
+- If codex confirms all fixes and accepts all dismissals → consensus reached. Proceed to Step 8.
+- If codex disagrees with a dismissal or finds a fix incomplete or discovers new issues:
+  Go back to Step 5 for the unresolved findings only. Present codex's response to the
+  user via AskUserQuestion, explain the disagreement, and let the user decide again.
+- This is a three-way conversation: codex reviews, Claude Code recommends, user decides.
 
-Limit to a maximum of 5 rounds. If still open findings after 5 rounds,
-inform the user and proceed to Step 8.
+Repeat until:
+- All findings are resolved (fixed + dismissed with codex agreement) → proceed to Step 8.
+- Maximum 5 rounds reached → inform the user of remaining unresolved items, proceed to Step 8.
 
 ## Step 8: Finalize
 
@@ -1477,8 +1440,11 @@ If yes: run `xreview clean --session <session-id>` to remove session data.
 - If any xreview command fails, show the error to the user and ask how to proceed.
 - Preflight only runs once per session. If a later command fails with a codex error,
   the error message will tell you what happened — no need to re-run preflight.
-- This is a MULTI-ROUND REVIEW. You and codex may disagree. Use --message to have a
-  natural conversation. Codex is smart enough to reconsider when given good reasoning.
+- This is a THREE-PARTY REVIEW: Codex (reviewer), you Claude Code (executor), and the
+  user (decision maker). Every finding goes through AskUserQuestion — the user always
+  has final say, including the option to not fix.
+- Use --message to convey user decisions and your reasoning to codex. Codex is smart
+  enough to reconsider when given good reasoning from the user.
 
 ## XML Schema Reference
 
@@ -1796,7 +1762,7 @@ xreview/
       cmd_selfupdate.go          # self-update subcommand
   internal/
     collector/
-      collector.go               # File content collection
+      collector.go               # File content collection (files + directory expansion)
       collector_test.go
       git.go                     # Git uncommitted change detection
       git_test.go
@@ -1815,20 +1781,17 @@ xreview/
       error.go                   # Error XML generation
       error_test.go
     session/
-      manager.go                 # Session CRUD operations
+      manager.go                 # Session CRUD (single session.json per session)
       manager_test.go
-      findings.go                # Finding state management
-      findings_test.go
-      comparison.go              # Finding diff for full-rescan
-      comparison_test.go
-      types.go                   # Session, Finding, Round structs
+      types.go                   # Session, Finding structs
     codex/
       runner.go                  # Codex process spawning and management
       runner_test.go
       resume.go                  # Session resume logic + session ID extraction
       resume_test.go
     schema/
-      schema.go                  # JSON schema generation for --output-schema
+      review.json                # Embedded via //go:embed — codex output schema
+      schema.go                  # Writes embedded schema to temp file for codex
       schema_test.go
     version/
       version.go                 # Version check and self-update
@@ -1836,10 +1799,14 @@ xreview/
     config/
       config.go                  # Project-level config (.xreview/config.json)
       config_test.go
+    reviewer/
+      reviewer.go                # Reviewer interface (Day 1: SingleReviewer)
+      single.go                  # SingleReviewer — single codex call
+      single_test.go
   test/
     fixtures/
       codex-output/              # Sample codex outputs for parser tests
-      sessions/                  # Sample session directories
+      sessions/                  # Sample session.json files
     mock-codex/
       codex                      # Mock codex binary (shell script)
     e2e/
