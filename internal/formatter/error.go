@@ -1,5 +1,7 @@
 package formatter
 
+import "fmt"
+
 // Error codes returned by xreview.
 const (
 	ErrCodexNotFound         = "CODEX_NOT_FOUND"
@@ -19,6 +21,10 @@ const (
 
 // FormatError produces an XML error response.
 func FormatError(action, code, message string) string {
-	// TODO: implement — produce <xreview-result status="error" action="...">
-	return ""
+	return fmt.Sprintf(
+		`<xreview-result status="error" action="%s">`+"\n"+
+			`  <error code="%s">%s</error>`+"\n"+
+			`</xreview-result>`,
+		xmlEscape(action), xmlEscape(code), xmlEscape(message),
+	)
 }
