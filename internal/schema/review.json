@@ -1,0 +1,36 @@
+{
+  "type": "object",
+  "properties": {
+    "verdict": {
+      "type": "string",
+      "enum": ["APPROVED", "REVISE"],
+      "description": "Overall review decision"
+    },
+    "summary": {
+      "type": "string",
+      "description": "Brief summary of review findings"
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "severity": { "type": "string", "enum": ["high", "medium", "low"] },
+          "category": { "type": "string", "enum": ["security", "logic", "performance", "error-handling"] },
+          "file": { "type": "string" },
+          "line": { "type": "integer" },
+          "description": { "type": "string" },
+          "suggestion": { "type": "string" },
+          "code_snippet": { "type": "string" },
+          "status": { "type": "string", "enum": ["open", "fixed", "dismissed", "reopened"] },
+          "verification_note": { "type": "string" }
+        },
+        "required": ["id", "severity", "description", "suggestion"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["verdict", "summary", "findings"],
+  "additionalProperties": false
+}
