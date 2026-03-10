@@ -1,0 +1,95 @@
+package session
+
+import "time"
+
+// Session status constants.
+const (
+	StatusInitialized = "initialized"
+	StatusInReview    = "in_review"
+	StatusVerifying   = "verifying"
+	StatusCompleted   = "completed"
+)
+
+// Finding status constants.
+const (
+	FindingOpen      = "open"
+	FindingFixed     = "fixed"
+	FindingDismissed = "dismissed"
+	FindingReopened  = "reopened"
+)
+
+// Session represents the complete state of a review session.
+// Stored as a single session.json file, updated in-place each round.
+type Session struct {
+	SessionID      string    `json:"session_id"`
+	XReviewVersion string    `json:"xreview_version"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
+	Status         string    `json:"status"`
+	Round          int       `json:"round"`
+	CodexSessionID string    `json:"codex_session_id,omitempty"`
+	CodexModel     string    `json:"codex_model"`
+	Context        string    `json:"context"`
+	Targets        []string  `json:"targets"`
+	TargetMode     string    `json:"target_mode"`
+	Findings       []Finding `json:"findings"`
+}
+
+// Finding represents a single review finding.
+type Finding struct {
+	ID               string `json:"id"`
+	Severity         string `json:"severity"`
+	Category         string `json:"category"`
+	Status           string `json:"status"`
+	File             string `json:"file"`
+	Line             int    `json:"line"`
+	Description      string `json:"description"`
+	Suggestion       string `json:"suggestion"`
+	CodeSnippet      string `json:"code_snippet,omitempty"`
+	VerificationNote string `json:"verification_note,omitempty"`
+}
+
+// FindingSummary holds aggregated counts of finding statuses.
+type FindingSummary struct {
+	Total     int `json:"total"`
+	Open      int `json:"open"`
+	Fixed     int `json:"fixed"`
+	Dismissed int `json:"dismissed"`
+}
+
+// Summarize computes a FindingSummary from the current findings.
+func (s *Session) Summarize() FindingSummary {
+	sum := FindingSummary{Total: len(s.Findings)}
+	for _, f := range s.Findings {
+		switch f.Status {
+		case FindingOpen, FindingReopened:
+			sum.Open++
+		case FindingFixed:
+			sum.Fixed++
+		case FindingDismissed:
+			sum.Dismissed++
+		}
+	}
+	return sum
+}
+
+// CodexResponse represents the structured JSON output from codex.
+type CodexResponse struct {
+	Verdict  string         `json:"verdict"`
+	Summary  string         `json:"summary"`
+	Findings []CodexFinding `json:"findings"`
+}
+
+// CodexFinding is a single finding as returned by codex JSON output.
+type CodexFinding struct {
+	ID               string `json:"id"`
+	Severity         string `json:"severity"`
+	Category         string `json:"category"`
+	File             string `json:"file"`
+	Line             int    `json:"line"`
+	Description      string `json:"description"`
+	Suggestion       string `json:"suggestion"`
+	CodeSnippet      string `json:"code_snippet,omitempty"`
+	Status           string `json:"status,omitempty"`
+	VerificationNote string `json:"verification_note,omitempty"`
+}
