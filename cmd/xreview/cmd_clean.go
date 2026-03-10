@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 
+	"github.com/davidleitw/xreview/internal/formatter"
+	"github.com/davidleitw/xreview/internal/session"
 	"github.com/spf13/cobra"
 )
 
@@ -19,7 +21,21 @@ func newCleanCmd() *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return fmt.Errorf("clean: not implemented")
+			mgr := session.NewManager(flagWorkdir)
+
+			// Verify session exists before deleting
+			if _, err := mgr.Load(sessionID); err != nil {
+				fmt.Println(formatter.FormatError("clean", formatter.ErrSessionNotFound, err.Error()))
+				return err
+			}
+
+			if err := mgr.Delete(sessionID); err != nil {
+				fmt.Println(formatter.FormatError("clean", formatter.ErrSessionNotFound, err.Error()))
+				return err
+			}
+
+			fmt.Println(formatter.FormatCleanResult(sessionID))
+			return nil
 		},
 	}
 
