@@ -65,6 +65,20 @@ func (b *builder) BuildResume(input ResumeInput) (string, error) {
 }
 
 func (b *builder) FormatFindingsForPrompt(findings []session.Finding) string {
-	// TODO: implement — format findings as human-readable text for prompt
-	return ""
+	if len(findings) == 0 {
+		return "(no previous findings)"
+	}
+
+	var buf bytes.Buffer
+	for _, f := range findings {
+		fmt.Fprintf(&buf, "[%s] (%s/%s) %s:%d — %s [status: %s]\n",
+			f.ID, f.Severity, f.Category, f.File, f.Line, f.Description, f.Status)
+		if f.Suggestion != "" {
+			fmt.Fprintf(&buf, "  Suggestion: %s\n", f.Suggestion)
+		}
+		if f.VerificationNote != "" {
+			fmt.Fprintf(&buf, "  Verification: %s\n", f.VerificationNote)
+		}
+	}
+	return buf.String()
 }
