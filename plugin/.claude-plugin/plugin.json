@@ -1,0 +1,13 @@
+{
+  "name": "xreview",
+  "version": "0.1.0",
+  "description": "AI-powered code review using Codex — three-party consensus between Codex, Claude Code, and you",
+  "author": {
+    "name": "davidleitw",
+    "url": "https://github.com/davidleitw"
+  },
+  "repository": "https://github.com/davidleitw/xreview",
+  "license": "MIT",
+  "keywords": ["code-review", "codex", "xreview"],
+  "skills": "./skills/"
+}

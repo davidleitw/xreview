@@ -1,5 +1,9 @@
 # Build output
 bin/
+dist/
+
+# Built binary at root (use bin/ or dist/ instead)
+/xreview
 
 # xreview session data
 .xreview/
