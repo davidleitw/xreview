@@ -185,6 +185,89 @@ func TestFormatCleanResult(t *testing.T) {
 	assertContains(t, result, "deleted successfully")
 }
 
+func TestFormatReviewResult_EnrichedFields(t *testing.T) {
+	findings := []session.Finding{
+		{
+			ID:          "F001",
+			Severity:    "high",
+			Category:    "security",
+			Status:      "open",
+			File:        "db.go",
+			Line:        19,
+			Description: "SQL injection",
+			Suggestion:  "Use parameterized query",
+			Trigger:     "attacker sends id=' OR '1'='1",
+			CascadeImpact: []string{
+				"handler/task.go:GetTaskHandler() — passes input directly",
+				"cache/task.go:GetCached() — bypasses validation",
+			},
+			FixAlternatives: []session.FixAlternative{
+				{Label: "A", Description: "Parameterized query", Effort: "minimal", Recommended: true},
+				{Label: "B", Description: "Introduce ORM", Effort: "large", Recommended: false},
+			},
+		},
+	}
+	summary := session.FindingSummary{Total: 1, Open: 1}
+
+	result := FormatReviewResult("xr-test", 1, "REVISE", findings, summary)
+
+	assertContains(t, result, "<trigger>attacker sends id=&#39; OR &#39;1&#39;=&#39;1</trigger>")
+	assertContains(t, result, "<cascade-impact>")
+	assertContains(t, result, "<impact>handler/task.go:GetTaskHandler()")
+	assertContains(t, result, "<impact>cache/task.go:GetCached()")
+	assertContains(t, result, "</cascade-impact>")
+	assertContains(t, result, "<fix-alternatives>")
+	assertContains(t, result, `<alternative label="A" effort="minimal" recommended="true">Parameterized query</alternative>`)
+	assertContains(t, result, `<alternative label="B" effort="large" recommended="false">Introduce ORM</alternative>`)
+	assertContains(t, result, "</fix-alternatives>")
+}
+
+func TestFormatReviewResult_NoEnrichedFields(t *testing.T) {
+	findings := []session.Finding{
+		{
+			ID:          "F001",
+			Severity:    "low",
+			Category:    "logic",
+			Status:      "open",
+			File:        "main.go",
+			Line:        1,
+			Description: "minor issue",
+		},
+	}
+	summary := session.FindingSummary{Total: 1, Open: 1}
+
+	result := FormatReviewResult("xr-test", 1, "REVISE", findings, summary)
+
+	assertNotContains(t, result, "<trigger>")
+	assertNotContains(t, result, "<cascade-impact>")
+	assertNotContains(t, result, "<fix-alternatives>")
+}
+
+func TestFormatReviewResult_AlternativesNoRecommended(t *testing.T) {
+	findings := []session.Finding{
+		{
+			ID:          "F001",
+			Severity:    "medium",
+			Category:    "logic",
+			Status:      "open",
+			File:        "main.go",
+			Line:        10,
+			Description: "potential issue",
+			FixAlternatives: []session.FixAlternative{
+				{Label: "A", Description: "option one", Effort: "minimal", Recommended: false},
+				{Label: "B", Description: "option two", Effort: "moderate", Recommended: false},
+			},
+		},
+	}
+	summary := session.FindingSummary{Total: 1, Open: 1}
+
+	result := FormatReviewResult("xr-test", 1, "REVISE", findings, summary)
+
+	assertContains(t, result, "<fix-alternatives>")
+	assertContains(t, result, `recommended="false">option one</alternative>`)
+	assertContains(t, result, `recommended="false">option two</alternative>`)
+}
+
 func assertContains(t *testing.T, s, substr string) {
 	t.Helper()
 	if !strings.Contains(s, substr) {
