@@ -43,24 +43,34 @@ func NewRunner() Runner {
 
 // BuildArgs constructs the codex exec command arguments from an ExecRequest.
 func BuildArgs(req ExecRequest) []string {
-	args := []string{"exec"}
-
-	if req.Model != "" {
-		args = append(args, "-m", req.Model)
-	}
-
-	if req.SchemaPath != "" {
-		args = append(args, "--output-schema", req.SchemaPath)
-	}
-
-	args = append(args, "--skip-git-repo-check")
-	args = append(args, "-c", "skills.allow_implicit_invocation=false")
+	var args []string
 
 	if req.ResumeSessionID != "" {
-		args = append(args, "-r", req.ResumeSessionID)
-	}
+		// Resume uses subcommand: codex exec resume <session-id> <prompt>
+		args = []string{"exec", "resume"}
 
-	args = append(args, req.Prompt)
+		if req.Model != "" {
+			args = append(args, "-m", req.Model)
+		}
+
+		args = append(args, "--skip-git-repo-check")
+		args = append(args, "-c", "skills.allow_implicit_invocation=false")
+		args = append(args, req.ResumeSessionID, req.Prompt)
+	} else {
+		args = []string{"exec"}
+
+		if req.Model != "" {
+			args = append(args, "-m", req.Model)
+		}
+
+		if req.SchemaPath != "" {
+			args = append(args, "--output-schema", req.SchemaPath)
+		}
+
+		args = append(args, "--skip-git-repo-check")
+		args = append(args, "-c", "skills.allow_implicit_invocation=false")
+		args = append(args, "--", req.Prompt)
+	}
 
 	return args
 }

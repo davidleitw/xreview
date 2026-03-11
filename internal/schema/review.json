@@ -26,7 +26,7 @@
           "status": { "type": "string", "enum": ["open", "fixed", "dismissed", "reopened"] },
           "verification_note": { "type": "string" }
         },
-        "required": ["id", "severity", "description", "suggestion"],
+        "required": ["id", "severity", "category", "file", "line", "description", "suggestion", "code_snippet", "status", "verification_note"],
         "additionalProperties": false
       }
     }

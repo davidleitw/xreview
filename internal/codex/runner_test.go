@@ -34,8 +34,18 @@ func TestBuildArgs_WithResume(t *testing.T) {
 
 	args := BuildArgs(req)
 
-	assertArgsContain(t, args, "-r")
+	// Resume format: codex exec resume [flags] <session-id> <prompt>
+	assertArgsContain(t, args, "exec")
+	assertArgsContain(t, args, "resume")
 	assertArgsContain(t, args, "abc-123-def")
+	assertArgsContain(t, args, "Verify fixes")
+
+	// Resume should NOT have --output-schema (even if set in request)
+	for _, arg := range args {
+		if arg == "--output-schema" {
+			t.Error("resume should not contain --output-schema")
+		}
+	}
 }
 
 func TestBuildArgs_NoResume(t *testing.T) {
@@ -47,8 +57,8 @@ func TestBuildArgs_NoResume(t *testing.T) {
 	args := BuildArgs(req)
 
 	for _, arg := range args {
-		if arg == "-r" {
-			t.Error("should not contain -r when ResumeSessionID is empty")
+		if arg == "resume" {
+			t.Error("should not contain resume subcommand when ResumeSessionID is empty")
 		}
 	}
 }
@@ -92,6 +102,12 @@ func TestBuildArgs_PromptIsLastArg(t *testing.T) {
 	last := args[len(args)-1]
 	if last != "Review this code" {
 		t.Errorf("expected prompt as last arg, got %q", last)
+	}
+
+	// Should have "--" separator before prompt in non-resume mode
+	secondLast := args[len(args)-2]
+	if secondLast != "--" {
+		t.Errorf("expected '--' before prompt, got %q", secondLast)
 	}
 }
 

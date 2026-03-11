@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	DefaultCodexModel = "gpt-5.3-Codex"
+	DefaultCodexModel = "gpt-5.3-codex"
 	DefaultTimeout    = 180
 	ConfigFileName    = "config.json"
 	SessionsDirName   = "sessions"
