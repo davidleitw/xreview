@@ -11,10 +11,11 @@ xreview delegates code review to Codex (a separate AI model) so Claude Code gets
 When you ask Claude Code to review your code, the xreview skill takes over:
 
 1. **Codex reviews** your code and reports findings (bugs, security issues, logic errors)
-2. **Claude Code analyzes** each finding — explains the trigger, root cause, and impact
-3. **You decide** — obvious fixes are applied automatically; ambiguous ones are presented as options
-4. **Codex verifies** the fixes in a follow-up round, may find new issues or reopen dismissed ones
-5. **Repeat** until all parties agree (or 5 rounds max)
+2. **Claude Code presents** a Fix Plan — every finding with trigger, impact, cascade, and fix options
+3. **You decide** — approve all recommended fixes, pick by severity, or adjust per finding
+4. **Claude Code fixes** strictly per your approved plan
+5. **Codex verifies** the fixes in a follow-up round, may find new issues or reopen dismissed ones
+6. **Repeat** until all parties agree (or 5 rounds max)
 
 This isn't Claude Code reviewing its own work. It's a genuinely independent review from a different model with different strengths.
 
@@ -78,8 +79,8 @@ Impact: attacker can read, modify, or delete any data in the database
 -> Fix: changed to parameterized query db.Query("...WHERE name = ?", name)
 ```
 
-- **Simple fix, one obvious solution** — Claude Code applies it directly and tells you what it did
-- **Multiple valid approaches** — Claude Code presents options with a recommendation; you pick
+- **All findings presented at once** — you see the full picture before any code changes
+- **Multiple fix options per finding** — Claude Code lists alternatives with effort levels; you pick
 - **Every finding includes "Don't fix"** — you always have the final say
 
 After all findings are addressed, Codex verifies the fixes. If it disagrees with a dismissal or finds an incomplete fix, the loop continues.
@@ -144,6 +145,30 @@ Claude Code (host)          xreview (CLI)           Codex (reviewer)
 ## Future Work
 
 - **Language-aware review context** — detect the project's primary language and pass language-specific best practices (e.g., Go error handling patterns, Rust ownership rules, Python type safety) as additional context to Codex, so reviews are informed by the idioms and conventions of the language being reviewed.
+
+## Uninstall
+
+Remove the plugin from Claude Code:
+
+```
+/plugin uninstall xreview
+```
+
+Then clean up the binary and cached data:
+
+```bash
+# Remove binary (check which location applies)
+rm "$(which xreview)"
+
+# Remove version cache
+rm -rf ~/.cache/xreview
+
+# Remove session data (optional)
+# Each review session creates a .xreview/ folder in your project root.
+# Normally xreview asks to clean it up at the end of a review.
+# If you skipped that step, delete it manually:
+rm -rf /path/to/your/project/.xreview
+```
 
 ## License
 

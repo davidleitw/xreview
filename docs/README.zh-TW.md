@@ -11,10 +11,11 @@ xreview 把程式碼審查委託給 Codex（另一個 AI 模型），讓 Claude 
 當你請 Claude Code 審查程式碼時，xreview skill 會自動接手：
 
 1. **Codex 審查**你的程式碼，回報發現的問題（bug、安全漏洞、邏輯錯誤）
-2. **Claude Code 分析**每個問題 — 說明觸發條件、根本原因和影響
-3. **你來決定** — 明確的修正直接套用；有多種做法的會列出選項讓你選
-4. **Codex 驗證**修正結果，可能發現新問題或重新開啟被駁回的項目
-5. **重複**直到三方達成共識（最多 5 輪）
+2. **Claude Code 呈現**修復計畫 — 每個問題的觸發條件、影響、連鎖影響和修復方案
+3. **你來決定** — 全部按推薦修、只修高嚴重度、或逐條調整
+4. **Claude Code 修正**嚴格按你批准的計畫執行
+5. **Codex 驗證**修正結果，可能發現新問題或重新開啟被駁回的項目
+6. **重複**直到三方達成共識（最多 5 輪）
 
 這不是 Claude Code 自己審查自己的程式碼，而是由不同模型提供真正獨立的審查。
 
@@ -78,8 +79,8 @@ F-001: SQL Injection (security/high)
 -> 修正：改用參數化查詢 db.Query("...WHERE name = ?", name)
 ```
 
-- **修法單一明確** — Claude Code 直接修，告訴你做了什麼
-- **多種可行方案** — Claude Code 列出選項和推薦，你來選
+- **所有問題一次呈現** — 你在任何程式碼修改之前看到全貌
+- **每個問題列出多個修復方案** — 標明工作量和推薦，你來選
 - **每個問題都可以選「不修」** — 最終決定權永遠在你
 
 修完後 Codex 會驗證。如果它不同意某個駁回或覺得修得不完整，迴圈會繼續。
@@ -144,6 +145,30 @@ Claude Code (host)          xreview (CLI)           Codex (reviewer)
 ## 未來方向
 
 - **語言感知的審查上下文** — 自動偵測專案主要開發語言，將該語言的 best practice（例如 Go 的 error handling 慣例、Rust 的 ownership 規則、Python 的型別安全）作為額外 context 傳給 Codex，讓審查結果更貼合該語言的慣用寫法和規範。
+
+## 移除
+
+從 Claude Code 移除 plugin：
+
+```
+/plugin uninstall xreview
+```
+
+然後清除 binary 和快取資料：
+
+```bash
+# 移除 binary（確認你的安裝路徑）
+rm "$(which xreview)"
+
+# 移除版本快取
+rm -rf ~/.cache/xreview
+
+# 移除 session 資料（可選）
+# 每次 review 會在專案根目錄建立 .xreview/ 資料夾。
+# 正常流程結束時 xreview 會詢問是否清除。
+# 如果當時跳過了，手動刪除即可：
+rm -rf /path/to/your/project/.xreview
+```
 
 ## 授權
 
