@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/davidleitw/xreview/internal/formatter"
+	"github.com/davidleitw/xreview/internal/updater"
 	"github.com/davidleitw/xreview/internal/version"
 	"github.com/spf13/cobra"
 )
@@ -25,11 +26,12 @@ func newPreflightCmd() *cobra.Command {
 				}
 			}
 
-			fmt.Println(formatter.FormatPreflightResult(checks, version.Version))
+			// Check for updates (non-blocking, uses 24h cache)
+			updateCheck := updater.CheckLatestVersion(version.Version)
+
+			fmt.Println(formatter.FormatPreflightResult(checks, version.Version, updateCheck.LatestVersion, updateCheck.UpdateAvailable))
 
 			if !allPassed {
-				// Return error so exit code is non-zero, but the XML output
-				// already contains all the detail Claude Code needs.
 				return fmt.Errorf("preflight checks failed")
 			}
 			return nil

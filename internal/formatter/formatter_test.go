@@ -97,13 +97,14 @@ func TestFormatPreflightResult_AllPassed(t *testing.T) {
 		{Name: "codex_authenticated", Passed: true, Detail: "logged in"},
 	}
 
-	result := FormatPreflightResult(checks, "1.0.0")
+	result := FormatPreflightResult(checks, "1.0.0", "1.0.0", false)
 
 	assertContains(t, result, `status="success"`)
 	assertContains(t, result, `action="preflight"`)
 	assertContains(t, result, `name="codex_installed"`)
 	assertContains(t, result, `passed="true"`)
 	assertContains(t, result, `current="1.0.0"`)
+	assertContains(t, result, `update-available="false"`)
 }
 
 func TestFormatPreflightResult_SomeFailed(t *testing.T) {
@@ -112,9 +113,41 @@ func TestFormatPreflightResult_SomeFailed(t *testing.T) {
 		{Name: "codex_authenticated", Passed: false, Detail: "not logged in"},
 	}
 
-	result := FormatPreflightResult(checks, "1.0.0")
+	result := FormatPreflightResult(checks, "1.0.0", "1.0.0", false)
 
 	assertContains(t, result, `status="error"`)
+}
+
+func TestFormatPreflightResult_UpdateAvailable(t *testing.T) {
+	checks := []Check{
+		{Name: "codex_installed", Passed: true, Detail: "codex v1.0"},
+	}
+
+	result := FormatPreflightResult(checks, "0.1.0", "0.2.0", true)
+
+	assertContains(t, result, `current="0.1.0"`)
+	assertContains(t, result, `latest="0.2.0"`)
+	assertContains(t, result, `update-available="true"`)
+}
+
+func TestFormatPreflightResult_NoLatestVersion(t *testing.T) {
+	checks := []Check{
+		{Name: "codex_installed", Passed: true, Detail: "codex v1.0"},
+	}
+
+	result := FormatPreflightResult(checks, "0.1.0", "", false)
+
+	assertContains(t, result, `current="0.1.0"`)
+	assertNotContains(t, result, `latest=`)
+	assertNotContains(t, result, `update-available`)
+}
+
+func TestFormatSelfUpdateResult(t *testing.T) {
+	result := FormatSelfUpdateResult("0.2.0")
+
+	assertContains(t, result, `status="success"`)
+	assertContains(t, result, `action="self-update"`)
+	assertContains(t, result, `new="0.2.0"`)
 }
 
 func TestFormatVersionResult_Outdated(t *testing.T) {

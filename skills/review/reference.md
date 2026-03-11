@@ -27,8 +27,15 @@ Content: human-readable error description with suggested action
 ### <checks> (preflight only)
 Children: <check name="..." passed="true|false" detail="..." />
 
+### <version> (preflight)
+Attributes: current, latest (optional), update-available (true|false, optional)
+When update-available="true", the skill should run `xreview self-update` before proceeding.
+
 ### <version> (version only)
 Attributes: current, latest, outdated (true|false), update-command
+
+### <version> (self-update only)
+Attributes: new (the version that was installed)
 
 ### <report> (report only)
 Attributes: path (file path to generated report)
@@ -47,3 +54,4 @@ Attributes: path (file path to generated report)
 | NO_TARGETS | no files to review |
 | INVALID_FLAGS | invalid flag combination |
 | UPDATE_FAILED | self-update failed |
+| VERSION_CHECK_FAILED | could not check for latest version |

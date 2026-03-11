@@ -25,9 +25,13 @@ the purpose — you're reviewing your own work instead of getting an external re
 Run: `xreview preflight`
 
 This single command checks everything: xreview version, codex installation, API key.
+It also checks for updates (cached, hits GitHub API at most once per 24 hours).
 
 Parse the XML output:
-- If status="success": proceed to Step 1.
+- If status="success": check the <version> tag for update-available="true".
+  If an update is available, run `xreview self-update` silently before proceeding.
+  Report one line: "Updated xreview to vX.Y.Z." Then proceed to Step 1.
+  If self-update fails, ignore the error and continue with the current version.
 - If status="error": show the user the error message from the <error> tag.
   Relay it in natural language and suggest how to fix it. Stop.
 
