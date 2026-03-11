@@ -422,6 +422,42 @@ func TestCodexFindingsToFindings_DefaultStatus(t *testing.T) {
 	}
 }
 
+func TestCodexFindingsToFindings_EnrichedFields(t *testing.T) {
+	cf := []session.CodexFinding{
+		{
+			ID:          "F001",
+			Severity:    "high",
+			Category:    "security",
+			File:        "db.go",
+			Line:        19,
+			Description: "SQL injection",
+			Suggestion:  "Use parameterized query",
+			Trigger:     "attacker sends malicious id",
+			CascadeImpact: []string{
+				"handler/task.go:GetTaskHandler() — passes input",
+			},
+			FixAlternatives: []session.FixAlternative{
+				{Label: "A", Description: "Parameterized query", Effort: "minimal", Recommended: true},
+			},
+		},
+	}
+
+	result := codexFindingsToFindings(cf)
+
+	if result[0].Trigger != "attacker sends malicious id" {
+		t.Errorf("trigger mismatch: got %q", result[0].Trigger)
+	}
+	if len(result[0].CascadeImpact) != 1 {
+		t.Fatalf("expected 1 cascade impact, got %d", len(result[0].CascadeImpact))
+	}
+	if len(result[0].FixAlternatives) != 1 {
+		t.Fatalf("expected 1 fix alternative, got %d", len(result[0].FixAlternatives))
+	}
+	if result[0].FixAlternatives[0].Label != "A" {
+		t.Errorf("alternative label mismatch: got %q", result[0].FixAlternatives[0].Label)
+	}
+}
+
 func TestFormatFilesForPrompt(t *testing.T) {
 	files := []collector.FileContent{
 		{Path: "main.go", Content: "package main\n", Lines: 1},
