@@ -528,6 +528,88 @@ func TestMergeFindings_AddNewWithEnrichedFields(t *testing.T) {
 	}
 }
 
+func TestReview_EnrichedFieldsEndToEnd(t *testing.T) {
+	mgr := newMockManager()
+	coll := &mockCollector{
+		files: []collector.FileContent{
+			{Path: "db.go", Content: "package db\nfunc GetTask(id string) {}\n", Lines: 2},
+		},
+	}
+	runner := &mockRunner{
+		execFn: func(ctx context.Context, req codex.ExecRequest) (*codex.ExecResult, error) {
+			return &codex.ExecResult{
+				Stdout:         "{}",
+				CodexSessionID: "codex-sess-456",
+				DurationMs:     300,
+			}, nil
+		},
+	}
+	psr := &mockParser{
+		parseFn: func(stdout string) (*session.CodexResponse, error) {
+			return &session.CodexResponse{
+				Verdict: "REVISE",
+				Summary: "found security issue",
+				Findings: []session.CodexFinding{
+					{
+						ID:          "F001",
+						Severity:    "high",
+						Category:    "security",
+						File:        "db.go",
+						Line:        2,
+						Description: "SQL injection in GetTask",
+						Suggestion:  "Use parameterized query",
+						CodeSnippet: "func GetTask(id string) {}",
+						Trigger:     "attacker sends id=' OR '1'='1",
+						CascadeImpact: []string{
+							"handler/task.go:GetTaskHandler() — passes user input directly",
+						},
+						FixAlternatives: []session.FixAlternative{
+							{Label: "A", Description: "Parameterized query", Effort: "minimal", Recommended: true},
+							{Label: "B", Description: "ORM layer", Effort: "large", Recommended: false},
+						},
+					},
+				},
+			}, nil
+		},
+	}
+	cfg := &config.Config{CodexModel: "gpt-5.3-Codex", DefaultTimeout: 180}
+
+	r := NewSingleReviewer(runner, &mockBuilder{}, psr, mgr, coll, cfg)
+
+	result, err := r.Review(context.Background(), ReviewRequest{
+		Targets:    []string{"db.go"},
+		TargetMode: "files",
+		Context:    "test",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(result.Findings) != 1 {
+		t.Fatalf("expected 1 finding, got %d", len(result.Findings))
+	}
+
+	f := result.Findings[0]
+	if f.Trigger != "attacker sends id=' OR '1'='1" {
+		t.Errorf("trigger not carried: got %q", f.Trigger)
+	}
+	if len(f.CascadeImpact) != 1 {
+		t.Errorf("cascade not carried: got %d items", len(f.CascadeImpact))
+	}
+	if len(f.FixAlternatives) != 2 {
+		t.Errorf("alternatives not carried: got %d items", len(f.FixAlternatives))
+	}
+	if !f.FixAlternatives[0].Recommended {
+		t.Errorf("expected first alternative to be recommended")
+	}
+
+	// Verify session state also has enriched fields
+	sess := mgr.sessions[result.SessionID]
+	if sess.Findings[0].Trigger == "" {
+		t.Error("session finding should have trigger")
+	}
+}
+
 func TestFormatFilesForPrompt(t *testing.T) {
 	files := []collector.FileContent{
 		{Path: "main.go", Content: "package main\n", Lines: 1},
