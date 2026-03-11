@@ -64,6 +64,65 @@ func FormatReviewResult(sessionID string, round int, verdict string, findings []
 
 	b.WriteString("</xreview-result>")
 
+	// Append agent instructions when there are open findings to guide Claude Code behavior.
+	if summary.Open > 0 {
+		b.WriteString("\n\n")
+		b.WriteString(buildAgentInstructions(findings, summary))
+	}
+
+	return b.String()
+}
+
+// buildAgentInstructions generates inline instructions appended after XML output
+// to guide Claude Code on how to present findings to the user.
+func buildAgentInstructions(findings []session.Finding, summary session.FindingSummary) string {
+	var b strings.Builder
+
+	b.WriteString("<agent-instructions>\n")
+	b.WriteString("You MUST present ALL findings above as a Fix Plan BEFORE making any code changes.\n")
+	b.WriteString("This is a hard gate — do NOT skip it, do NOT start fixing.\n\n")
+
+	b.WriteString("For EACH finding, include:\n")
+	b.WriteString("1. Header: ### F-XXX: title (category/severity) with file:line\n")
+	b.WriteString("2. Trigger: copy the <trigger> content — do NOT rephrase or omit\n")
+	b.WriteString("3. Impact: what happens if exploited/triggered\n")
+	b.WriteString("4. Cascade: list every <impact> from <cascade-impact> — these show what else breaks\n")
+	b.WriteString("5. Fix options: list ALL <alternative> entries, mark which is recommended.\n")
+	b.WriteString("   ALWAYS add a final option: \"Don't fix — risk: <consequence>\"\n\n")
+
+	// Count severities for context-aware guidance.
+	var highCount, mediumCount, lowCount int
+	for _, f := range findings {
+		if f.Status != session.FindingOpen && f.Status != session.FindingReopened {
+			continue
+		}
+		switch f.Severity {
+		case "high":
+			highCount++
+		case "medium":
+			mediumCount++
+		case "low":
+			lowCount++
+		}
+	}
+
+	if highCount > 0 {
+		fmt.Fprintf(&b, "⚠ %d HIGH severity finding(s) — present full analysis for each.\n", highCount)
+	}
+	if mediumCount > 0 {
+		fmt.Fprintf(&b, "%d MEDIUM severity finding(s) — include analysis, can be shorter than high.\n", mediumCount)
+	}
+	if lowCount > 0 {
+		fmt.Fprintf(&b, "%d LOW severity finding(s) — brief description with fix options is sufficient.\n", lowCount)
+	}
+
+	b.WriteString("\nAfter listing ALL findings, you MUST use AskUserQuestion with these options:\n")
+	fmt.Fprintf(&b, "  A. Execute all recommended fixes\n")
+	fmt.Fprintf(&b, "  B. Only fix high severity, skip the rest\n")
+	fmt.Fprintf(&b, "  C. I want to adjust (tell me which findings to change)\n")
+	b.WriteString("Do NOT proceed until the user responds.\n")
+	b.WriteString("</agent-instructions>")
+
 	return b.String()
 }
 

@@ -59,44 +59,30 @@ Run: `xreview review --files <paths> --context "<structured context>"`
 
 ## Step 2.5: Fix Plan Gate (MANDATORY)
 
+<CRITICAL>
+- You MUST present ALL findings as a fix plan and get user approval BEFORE touching any code.
+- Every finding MUST include: trigger, cascade impact, and ALL fix alternatives from the XML.
+  Do NOT summarize to a single recommendation — the user needs options to decide.
+- You MUST end the fix plan with AskUserQuestion. No exceptions.
+- The xreview output includes `<agent-instructions>` after `</xreview-result>`. Follow them.
+</CRITICAL>
+
 Parse the XML output from Step 2.
 
 If verdict is APPROVED (zero findings): tell the user "No issues found." Skip to Step 5.
 
-Otherwise, you MUST present ALL findings as a complete fix plan BEFORE touching any code.
-This is a hard gate — do NOT start fixing anything until the user approves.
-
 ### Build the Fix Plan
 
-For EACH finding, use the XML data (including `<trigger>`, `<cascade-impact>`, `<fix-alternatives>`)
-to present a structured analysis. Read the relevant source file if needed for additional context.
+For EACH finding, present these fields (all available in the XML output):
 
-**For high/security severity:**
+1. **Header**: `### F-XXX: title (category/severity)` + `📍 file:line`
+2. **Trigger**: the `<trigger>` content — copy it, don't rephrase or omit
+3. **Impact**: what happens if exploited/triggered
+4. **Cascade**: list every `<impact>` from `<cascade-impact>` — what else breaks if this is fixed
+5. **Fix options**: ALL `<alternative>` entries from `<fix-alternatives>`, mark which is recommended.
+   Always add a final option: "Don't fix — risk: _consequence_"
 
-```
-### F-001: SQL Injection (security/high)
-📍 store/db.go:19 — GetTask()
-
-**Trigger**: attacker sends id=' OR '1'='1 as taskID
-**Root cause**: fmt.Sprintf concatenates user input directly into SQL
-**Impact**: attacker can read, modify, or delete entire database
-**Cascade**: if this code changes, also check:
-  - handler/task.go:GetTaskHandler() — passes user input directly
-  - cache/task.go:GetCached() — bypasses DB validation on cache miss
-
-**Fix options**:
-  A. (Recommended) Change to parameterized query — minimal effort
-  B. Introduce ORM layer — large effort
-  C. Don't fix — risk: full database compromise
-```
-
-**For medium severity:**
-
-Same structure, but cascade and alternatives may be shorter. Still include "Don't fix" option.
-
-**For low severity:**
-
-Brief description with recommended fix. Still include "Don't fix" option.
+Low severity findings may use a shorter format but MUST still include fix options.
 
 ### Get User Approval
 

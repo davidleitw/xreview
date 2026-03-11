@@ -238,9 +238,14 @@ func TestFormatReviewResult_NoEnrichedFields(t *testing.T) {
 
 	result := FormatReviewResult("xr-test", 1, "REVISE", findings, summary)
 
-	assertNotContains(t, result, "<trigger>")
-	assertNotContains(t, result, "<cascade-impact>")
-	assertNotContains(t, result, "<fix-alternatives>")
+	// Check only the XML portion (before agent-instructions) for absence of enriched tags
+	xmlPart := result
+	if idx := strings.Index(result, "<agent-instructions>"); idx != -1 {
+		xmlPart = result[:idx]
+	}
+	assertNotContains(t, xmlPart, "<trigger>")
+	assertNotContains(t, xmlPart, "<cascade-impact>")
+	assertNotContains(t, xmlPart, "<fix-alternatives>")
 }
 
 func TestFormatReviewResult_AlternativesNoRecommended(t *testing.T) {
@@ -266,6 +271,74 @@ func TestFormatReviewResult_AlternativesNoRecommended(t *testing.T) {
 	assertContains(t, result, "<fix-alternatives>")
 	assertContains(t, result, `recommended="false">option one</alternative>`)
 	assertContains(t, result, `recommended="false">option two</alternative>`)
+}
+
+func TestFormatReviewResult_AgentInstructions_Present(t *testing.T) {
+	findings := []session.Finding{
+		{
+			ID: "F001", Severity: "high", Category: "security", Status: "open",
+			File: "db.go", Line: 19, Description: "SQL injection",
+			Trigger:       "attacker sends malicious id",
+			CascadeImpact: []string{"handler.go:Handle()"},
+			FixAlternatives: []session.FixAlternative{
+				{Label: "A", Description: "parameterized query", Effort: "minimal", Recommended: true},
+			},
+		},
+		{
+			ID: "F002", Severity: "medium", Category: "logic", Status: "open",
+			File: "cache.go", Line: 5, Description: "cache leak",
+		},
+	}
+	summary := session.FindingSummary{Total: 2, Open: 2}
+
+	result := FormatReviewResult("xr-test", 1, "REVISE", findings, summary)
+
+	// Agent instructions block must appear after </xreview-result>
+	assertContains(t, result, "</xreview-result>\n\n<agent-instructions>")
+	assertContains(t, result, "Fix Plan BEFORE making any code changes")
+	assertContains(t, result, "AskUserQuestion")
+	assertContains(t, result, "1 HIGH severity")
+	assertContains(t, result, "1 MEDIUM severity")
+	assertContains(t, result, "</agent-instructions>")
+}
+
+func TestFormatReviewResult_AgentInstructions_Absent_WhenApproved(t *testing.T) {
+	summary := session.FindingSummary{Total: 0, Open: 0}
+
+	result := FormatReviewResult("xr-test", 1, "APPROVED", nil, summary)
+
+	assertNotContains(t, result, "<agent-instructions>")
+}
+
+func TestFormatReviewResult_AgentInstructions_Absent_WhenAllFixed(t *testing.T) {
+	findings := []session.Finding{
+		{
+			ID: "F001", Severity: "high", Category: "security", Status: "fixed",
+			File: "db.go", Line: 19, Description: "SQL injection",
+		},
+	}
+	summary := session.FindingSummary{Total: 1, Open: 0, Fixed: 1}
+
+	result := FormatReviewResult("xr-test", 2, "APPROVED", findings, summary)
+
+	assertNotContains(t, result, "<agent-instructions>")
+}
+
+func TestFormatReviewResult_AgentInstructions_SeverityCounts(t *testing.T) {
+	findings := []session.Finding{
+		{ID: "F001", Severity: "high", Status: "open", File: "a.go", Line: 1, Description: "a"},
+		{ID: "F002", Severity: "high", Status: "open", File: "b.go", Line: 2, Description: "b"},
+		{ID: "F003", Severity: "low", Status: "open", File: "c.go", Line: 3, Description: "c"},
+		{ID: "F004", Severity: "medium", Status: "fixed", File: "d.go", Line: 4, Description: "d"},
+	}
+	summary := session.FindingSummary{Total: 4, Open: 3, Fixed: 1}
+
+	result := FormatReviewResult("xr-test", 1, "REVISE", findings, summary)
+
+	assertContains(t, result, "2 HIGH severity")
+	assertContains(t, result, "1 LOW severity")
+	// F004 is fixed, should not count as medium
+	assertNotContains(t, result, "MEDIUM severity")
 }
 
 func assertContains(t *testing.T, s, substr string) {
