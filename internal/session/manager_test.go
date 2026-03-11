@@ -124,6 +124,69 @@ func TestManager_ListEmpty(t *testing.T) {
 	}
 }
 
+func TestManager_RoundTrip_EnrichedFindings(t *testing.T) {
+	dir := t.TempDir()
+	mgr := NewManager(dir)
+	cfg := &config.Config{CodexModel: "gpt-5.3-Codex"}
+
+	sess, err := mgr.Create([]string{"main.go"}, "files", "ctx", cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	sess.Status = StatusInReview
+	sess.Findings = []Finding{
+		{
+			ID:          "F001",
+			Severity:    "high",
+			Category:    "security",
+			Status:      FindingOpen,
+			File:        "db.go",
+			Line:        19,
+			Description: "SQL injection",
+			Suggestion:  "Use parameterized query",
+			Trigger:     "attacker sends id=' OR '1'='1",
+			CascadeImpact: []string{
+				"handler/task.go:GetTaskHandler() — passes user input directly",
+				"cache/task.go:GetCached() — bypasses DB validation",
+			},
+			FixAlternatives: []FixAlternative{
+				{Label: "A", Description: "Parameterized query", Effort: "minimal", Recommended: true},
+				{Label: "B", Description: "Introduce ORM", Effort: "large", Recommended: false},
+			},
+		},
+	}
+
+	if err := mgr.Update(sess); err != nil {
+		t.Fatalf("Update failed: %v", err)
+	}
+
+	loaded, err := mgr.Load(sess.SessionID)
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+
+	f := loaded.Findings[0]
+	if f.Trigger != "attacker sends id=' OR '1'='1" {
+		t.Errorf("trigger mismatch: got %q", f.Trigger)
+	}
+	if len(f.CascadeImpact) != 2 {
+		t.Fatalf("expected 2 cascade impacts, got %d", len(f.CascadeImpact))
+	}
+	if f.CascadeImpact[0] != "handler/task.go:GetTaskHandler() — passes user input directly" {
+		t.Errorf("cascade[0] mismatch: got %q", f.CascadeImpact[0])
+	}
+	if len(f.FixAlternatives) != 2 {
+		t.Fatalf("expected 2 alternatives, got %d", len(f.FixAlternatives))
+	}
+	if f.FixAlternatives[0].Label != "A" || !f.FixAlternatives[0].Recommended {
+		t.Errorf("alternative[0] mismatch: %+v", f.FixAlternatives[0])
+	}
+	if f.FixAlternatives[1].Effort != "large" {
+		t.Errorf("alternative[1] effort mismatch: got %q", f.FixAlternatives[1].Effort)
+	}
+}
+
 func TestSession_Summarize(t *testing.T) {
 	sess := &Session{
 		Findings: []Finding{

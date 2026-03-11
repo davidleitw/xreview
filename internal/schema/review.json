@@ -24,9 +24,33 @@
           "suggestion": { "type": "string" },
           "code_snippet": { "type": "string" },
           "status": { "type": "string", "enum": ["open", "fixed", "dismissed", "reopened"] },
-          "verification_note": { "type": "string" }
+          "verification_note": { "type": "string" },
+          "trigger": {
+            "type": "string",
+            "description": "Concrete trigger condition: specific input, scenario, or call sequence that manifests this issue"
+          },
+          "cascade_impact": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Other codebase locations affected if this finding is fixed. Each entry: file:function — impact. Empty array if none."
+          },
+          "fix_alternatives": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "label": { "type": "string" },
+                "description": { "type": "string" },
+                "effort": { "type": "string", "enum": ["minimal", "moderate", "large"] },
+                "recommended": { "type": "boolean" }
+              },
+              "required": ["label", "description", "effort", "recommended"],
+              "additionalProperties": false
+            },
+            "description": "2-3 fix approaches with effort estimate. At least one must be recommended."
+          }
         },
-        "required": ["id", "severity", "category", "file", "line", "description", "suggestion", "code_snippet", "status", "verification_note"],
+        "required": ["id", "severity", "category", "file", "line", "description", "suggestion", "code_snippet", "status", "verification_note", "trigger", "cascade_impact", "fix_alternatives"],
         "additionalProperties": false
       }
     }
