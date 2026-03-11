@@ -57,73 +57,99 @@ Assemble a structured --context string describing the change:
 Run: `xreview review --files <paths> --context "<structured context>"`
  or: `xreview review --git-uncommitted --context "<structured context>"`
 
-## Step 3: Analyze findings and fix (Three-Party Consensus)
+## Step 2.5: Fix Plan Gate (MANDATORY)
 
-Parse the XML output.
+Parse the XML output from Step 2.
 
 If verdict is APPROVED (zero findings): tell the user "No issues found." Skip to Step 5.
 
-For EACH finding, process it **one at a time** in this order:
+Otherwise, you MUST present ALL findings as a complete fix plan BEFORE touching any code.
+This is a hard gate — do NOT start fixing anything until the user approves.
 
-### 1. Analyze
+### Build the Fix Plan
 
-For every finding, explain in plain language:
-- **What**: what the issue is (in one sentence)
-- **Where**: file, line, function name
-- **Trigger**: under what conditions this bug manifests
-- **Root cause**: why the code is wrong
-- **Impact**: what happens if not fixed (data loss, security breach, crash, etc.)
+For EACH finding, use the XML data (including `<trigger>`, `<cascade-impact>`, `<fix-alternatives>`)
+to present a structured analysis. Read the relevant source file if needed for additional context.
 
-Format example:
+**For high/security severity:**
+
 ```
-**F-001: SQL Injection** (security/high)
-📍 store/db.go:34 — FindUser()
+### F-001: SQL Injection (security/high)
+📍 store/db.go:19 — GetTask()
 
-Trigger: user sends malicious string via /user?name=' OR '1'='1
-Root cause: fmt.Sprintf concatenates user input directly into SQL query
-Impact: attacker can read, modify, or delete any data in the database
+**Trigger**: attacker sends id=' OR '1'='1 as taskID
+**Root cause**: fmt.Sprintf concatenates user input directly into SQL
+**Impact**: attacker can read, modify, or delete entire database
+**Cascade**: if this code changes, also check:
+  - handler/task.go:GetTaskHandler() — passes user input directly
+  - cache/task.go:GetCached() — bypasses DB validation on cache miss
+
+**Fix options**:
+  A. (Recommended) Change to parameterized query — minimal effort
+  B. Introduce ORM layer — large effort
+  C. Don't fix — risk: full database compromise
 ```
 
-### 2. Decide
+**For medium severity:**
 
-Assess whether there is one obvious fix or multiple valid approaches:
+Same structure, but cascade and alternatives may be shorter. Still include "Don't fix" option.
 
-**Case A — Single obvious fix:**
-State the fix, apply it immediately, and briefly report what you did.
-Example: "→ Fix: changed to parameterized query `db.Query("...WHERE name = ?", name)`"
+**For low severity:**
 
-**Case B — Multiple valid approaches or ambiguous trade-off:**
-Use AskUserQuestion with concrete options. Put your recommended option first
-with "(Recommended)". **MUST always include a "Don't fix" option.**
-Example options:
-- "Use parameterized query (Recommended)" — why
-- "Use an ORM layer" — why
-- "Don't fix" — skip this finding
+Brief description with recommended fix. Still include "Don't fix" option.
 
-### 3. Fix
+### Get User Approval
 
-After deciding (Case A: immediately; Case B: after user responds), apply the fix
-**before** moving to the next finding. If user chose "Don't fix", record the reason.
+After listing ALL findings, use AskUserQuestion:
+
+```
+Fix plan for N findings above. How to proceed?
+  A. Execute all recommended fixes
+  B. Only fix high severity, skip the rest
+  C. I want to adjust (tell me which findings to change — e.g. "F-003 skip, F-005 use option B")
+```
+
+Do NOT proceed until user responds.
+
+## Step 3: Execute Fixes
+
+Execute fixes strictly per the approved plan. No re-analysis, no ad-hoc decisions.
+
+For each finding marked for fix:
+1. Apply the chosen fix approach.
+2. Briefly report what you did (one line per finding).
+
+If user chose option C with adjustments, follow those exactly.
+Skip any finding the user chose to not fix.
 
 ## Step 4: Summary + Verify
 
-After ALL findings are processed, present a summary table:
+Present a summary table:
 
 ```
 ### Round N Summary
 
 | ID    | Issue              | Action       | Detail                          |
 |-------|--------------------|--------------|---------------------------------|
-| F-001 | SQL injection      | Fixed        | Changed to parameterized query  |
+| F-001 | SQL injection      | Fixed (A)    | Changed to parameterized query  |
 | F-002 | Unused error       | Not fixed    | User: acceptable for demo code  |
 ```
 
-Then run verification:
-`xreview review --session <session-id> --message "<summary of what was fixed, dismissed, and reasons>"`
+Then run verification with enhanced scope:
+
+`xreview review --session <session-id> --message "<message>"`
+
+The message MUST include:
+- Which findings were fixed and how
+- Which findings were dismissed and why
+- Explicit instruction: "Re-review ALL modified files. Beyond verifying old findings, also check:
+  1. Whether fixes introduced new security/logic issues
+  2. Unhandled cascade impact between fixes
+  3. Cross-layer consistency (if DB layer changed, are cache/handler layers in sync)"
 
 Parse the result:
 - All resolved → proceed to Step 5.
-- Codex disagrees or finds new issues → go back to Step 3 for unresolved findings only.
+- Codex disagrees or finds new issues → present new/reopened findings with the same Fix Plan format (Step 2.5), get user approval, then fix.
 - Maximum 5 rounds → inform user of remaining items, proceed to Step 5.
 
 ## Step 5: Finalize
@@ -145,9 +171,9 @@ If yes: run `xreview clean --session <session-id>` to remove session data.
 - The session ID is in the XML output's session attribute. Track it for resume calls.
 - If any xreview command fails, show the error to the user and ask how to proceed.
 - This is a THREE-PARTY REVIEW: Codex (reviewer), you Claude Code (executor), and the
-  user (decision maker). For straightforward fixes, act directly to reduce noise.
-  For ambiguous cases, the user always has final say via AskUserQuestion,
-  including the option to not fix.
+  user (decision maker). You MUST present ALL findings as a Fix Plan and get user
+  approval via AskUserQuestion BEFORE making any code changes. The user always has
+  final say, including the option to not fix any finding.
 - Use --message to convey user decisions and your reasoning to codex. Codex is smart
   enough to reconsider when given good reasoning from the user.
 
