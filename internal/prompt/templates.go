@@ -92,7 +92,12 @@ Use this exact schema:
       "suggestion": "how to fix it",
       "code_snippet": "the relevant code",
       "status": "open|fixed|dismissed|reopened",
-      "verification_note": "verification details or empty string"
+      "verification_note": "verification details or empty string",
+      "trigger": "concrete trigger condition",
+      "cascade_impact": ["file:func() — impact description"],
+      "fix_alternatives": [
+        {"label": "A", "description": "fix approach", "effort": "minimal|moderate|large", "recommended": true}
+      ]
     }
   ]
 }`

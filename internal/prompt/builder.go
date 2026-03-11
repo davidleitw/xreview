@@ -80,6 +80,21 @@ func (b *builder) FormatFindingsForPrompt(findings []session.Finding) string {
 		if f.VerificationNote != "" {
 			fmt.Fprintf(&buf, "  Verification: %s\n", f.VerificationNote)
 		}
+		if f.Trigger != "" {
+			fmt.Fprintf(&buf, "  Trigger: %s\n", f.Trigger)
+		}
+		if len(f.CascadeImpact) > 0 {
+			for _, ci := range f.CascadeImpact {
+				fmt.Fprintf(&buf, "  Cascade: %s\n", ci)
+			}
+		}
+		for _, alt := range f.FixAlternatives {
+			rec := ""
+			if alt.Recommended {
+				rec = " (recommended)"
+			}
+			fmt.Fprintf(&buf, "  Fix %s%s: %s [%s]\n", alt.Label, rec, alt.Description, alt.Effort)
+		}
 	}
 	return buf.String()
 }
