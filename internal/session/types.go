@@ -35,18 +35,29 @@ type Session struct {
 	Findings       []Finding `json:"findings"`
 }
 
+// FixAlternative represents one possible fix approach for a finding.
+type FixAlternative struct {
+	Label       string `json:"label"`
+	Description string `json:"description"`
+	Effort      string `json:"effort"`
+	Recommended bool   `json:"recommended"`
+}
+
 // Finding represents a single review finding.
 type Finding struct {
-	ID               string `json:"id"`
-	Severity         string `json:"severity"`
-	Category         string `json:"category"`
-	Status           string `json:"status"`
-	File             string `json:"file"`
-	Line             int    `json:"line"`
-	Description      string `json:"description"`
-	Suggestion       string `json:"suggestion"`
-	CodeSnippet      string `json:"code_snippet,omitempty"`
-	VerificationNote string `json:"verification_note,omitempty"`
+	ID               string           `json:"id"`
+	Severity         string           `json:"severity"`
+	Category         string           `json:"category"`
+	Status           string           `json:"status"`
+	File             string           `json:"file"`
+	Line             int              `json:"line"`
+	Description      string           `json:"description"`
+	Suggestion       string           `json:"suggestion"`
+	CodeSnippet      string           `json:"code_snippet,omitempty"`
+	VerificationNote string           `json:"verification_note,omitempty"`
+	Trigger          string           `json:"trigger,omitempty"`
+	CascadeImpact    []string         `json:"cascade_impact,omitempty"`
+	FixAlternatives  []FixAlternative `json:"fix_alternatives,omitempty"`
 }
 
 // FindingSummary holds aggregated counts of finding statuses.

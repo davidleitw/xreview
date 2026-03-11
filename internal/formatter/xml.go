@@ -38,6 +38,24 @@ func FormatReviewResult(sessionID string, round int, verdict string, findings []
 		if f.VerificationNote != "" {
 			fmt.Fprintf(&b, `    <verification>%s</verification>`+"\n", xmlEscape(f.VerificationNote))
 		}
+		if f.Trigger != "" {
+			fmt.Fprintf(&b, "    <trigger>%s</trigger>\n", xmlEscape(f.Trigger))
+		}
+		if len(f.CascadeImpact) > 0 {
+			b.WriteString("    <cascade-impact>\n")
+			for _, ci := range f.CascadeImpact {
+				fmt.Fprintf(&b, "      <impact>%s</impact>\n", xmlEscape(ci))
+			}
+			b.WriteString("    </cascade-impact>\n")
+		}
+		if len(f.FixAlternatives) > 0 {
+			b.WriteString("    <fix-alternatives>\n")
+			for _, alt := range f.FixAlternatives {
+				fmt.Fprintf(&b, "      <alternative label=\"%s\" effort=\"%s\" recommended=\"%t\">%s</alternative>\n",
+					xmlEscape(alt.Label), xmlEscape(alt.Effort), alt.Recommended, xmlEscape(alt.Description))
+			}
+			b.WriteString("    </fix-alternatives>\n")
+		}
 		b.WriteString("  </finding>\n")
 	}
 
@@ -136,5 +154,6 @@ func xmlEscape(s string) string {
 	s = strings.ReplaceAll(s, "<", "&lt;")
 	s = strings.ReplaceAll(s, ">", "&gt;")
 	s = strings.ReplaceAll(s, `"`, "&quot;")
+	s = strings.ReplaceAll(s, "'", "&#39;")
 	return s
 }
