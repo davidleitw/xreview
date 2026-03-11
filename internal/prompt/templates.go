@@ -30,7 +30,17 @@ Context from the developer: {{.Context}}
 
 {{.Diff}}
 
-===== END =====`
+===== END =====
+
+For each finding, you MUST also provide these fields:
+- trigger: the concrete input, scenario, or call sequence that manifests the issue.
+  Be specific (e.g. "user sends id=' OR '1'='1") not abstract (e.g. "malicious input").
+- cascade_impact: other files/functions in the repository that would be affected if
+  this code is changed. Trace the call chain. Use format "file:function() — description".
+  You are encouraged to read additional files to identify these. Empty array [] if none.
+- fix_alternatives: provide 2-3 fix approaches. Each has label (A/B/C), description,
+  effort (minimal/moderate/large), and recommended (true for exactly one).
+  Consider trade-offs: minimal fix vs. systemic improvement.`
 
 // ResumeTemplate is the prompt template for follow-up review rounds.
 const ResumeTemplate = `This is a follow-up review. You previously reviewed these files and

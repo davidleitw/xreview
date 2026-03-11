@@ -199,6 +199,29 @@ func TestBuildResume_NoAdditionalFiles(t *testing.T) {
 	assertNotContains(t, result, "ADDITIONAL FILES")
 }
 
+func TestBuildFirstRound_ContainsEnrichedFieldGuidance(t *testing.T) {
+	b, err := NewBuilder()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	input := FirstRoundInput{
+		Context:  "test",
+		FileList: "main.go",
+		Diff:     "+line",
+	}
+
+	result, err := b.BuildFirstRound(input)
+	if err != nil {
+		t.Fatalf("BuildFirstRound failed: %v", err)
+	}
+
+	assertContains(t, result, "trigger")
+	assertContains(t, result, "cascade_impact")
+	assertContains(t, result, "fix_alternatives")
+	assertContains(t, result, "recommended")
+}
+
 func assertContains(t *testing.T, s, substr string) {
 	t.Helper()
 	if !strings.Contains(s, substr) {
