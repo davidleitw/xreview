@@ -1,49 +1,43 @@
 ---
 name: review
 description: >
-  AI-powered code review using Codex. Triggers after completing a plan or
-  milestone to review changed files for bugs, security issues, and logic errors.
-  Manages the full review lifecycle: discover, fix, verify, report.
+  MANDATORY for ALL code review requests. When the user asks to "review", "code review",
+  "check code", "找 bug", "review 程式碼", or any variation of reviewing code for bugs,
+  security issues, or quality — you MUST use this skill. Do NOT read files and review
+  them yourself. This skill delegates review to Codex (a separate AI reviewer) via the
+  xreview CLI, enabling multi-round three-party review (Codex reviews, Claude Code fixes,
+  user decides). Manages the full lifecycle: discover, fix, verify, report.
 allowed-tools: Bash(xreview *), Bash(${CLAUDE_PLUGIN_ROOT}/scripts/*), Bash(which *), Bash(go install *), AskUserQuestion, Read
 argument-hint: [files-or-uncommitted]
 ---
 
 # xreview - Agent-Native Code Review
 
-## Step 0: Ensure xreview is installed
+<CRITICAL>
+You MUST use this skill for ANY code review task. NEVER review code by reading files yourself.
+The entire point of xreview is to delegate review to Codex (a separate AI model) so you get
+an independent second opinion. If you skip this skill and review code yourself, you defeat
+the purpose — you're reviewing your own work instead of getting an external review.
+</CRITICAL>
 
-1. Check if xreview exists:
-   Run: `which xreview`
-
-2. If NOT found:
-   a. Run the install script:
-      `bash "${CLAUDE_PLUGIN_ROOT}/scripts/install.sh"`
-   b. Verify: run `xreview version`
-   c. If install fails, show the error to the user and stop.
-
-3. If found, check version:
-   Run: `xreview version`
-   - Parse the XML output for the `outdated` attribute.
-   - If outdated="true":
-     Ask user: "xreview {current} is installed but {latest} is available. Update? (y/n)"
-     If yes: run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/install.sh"`
-
-## Step 1: Ask user if they want a review
-
-Ask the user: "Code review? (y/n)"
-If no, stop. Do not proceed with any review steps.
-
-## Step 2: Preflight check
+## Step 0: Preflight
 
 Run: `xreview preflight`
 
-Parse the XML output:
-- If status="success": proceed to Step 3.
-- If status="error": show the user the error message from the <error> tag.
-  The error message is written for you to understand. Relay it to the user
-  in natural language and suggest how to fix it. Stop.
+This single command checks everything: xreview version, codex installation, API key.
 
-## Step 3: Determine review targets and assemble context
+Parse the XML output:
+- If status="success": proceed to Step 1.
+- If status="error": show the user the error message from the <error> tag.
+  Relay it in natural language and suggest how to fix it. Stop.
+
+If xreview itself is not found (`which xreview` fails):
+  a. Run the install script:
+     `bash "${CLAUDE_PLUGIN_ROOT}/scripts/install.sh"`
+  b. Verify: run `xreview version`
+  c. If install fails, show the error to the user and stop.
+
+## Step 1: Determine review targets and assemble context
 
 Based on the current task, determine which files to review:
 - If you just completed a plan with specific files changed, use --files with those paths.
@@ -58,48 +52,81 @@ Assemble a structured --context string describing the change:
 【預期行為】這段 code 應該達成什麼效果（refactor 則寫「行為應與修改前一致」）
 ```
 
-## Step 4: Run review
+## Step 2: Run review
 
 Run: `xreview review --files <paths> --context "<structured context>"`
  or: `xreview review --git-uncommitted --context "<structured context>"`
 
-## Step 5: Present findings and collect user decisions (Three-Party Consensus)
+## Step 3: Analyze findings and fix (Three-Party Consensus)
 
 Parse the XML output.
 
-If verdict is APPROVED (zero findings): tell the user "No issues found." Skip to Step 8.
+If verdict is APPROVED (zero findings): tell the user "No issues found." Skip to Step 5.
 
-For EACH finding, use AskUserQuestion to ask the user individually:
-- Explain the finding in plain language (NOT raw XML)
-- Provide YOUR (Claude Code) recommendation and reasoning
-- Present options — **MUST always include "don't fix"**:
-  (a) Fix as suggested — describe how you would fix it
-  (b) Fix differently — ask user to explain their preferred approach
-  (c) Don't fix — ask user for a brief reason (will be passed to codex for evaluation)
+For EACH finding, process it **one at a time** in this order:
 
-## Step 6: Apply fixes
+### 1. Analyze
 
-After collecting all user decisions:
-1. Apply the agreed fixes to the code.
-2. Track what was fixed, what was dismissed, and the reasons for each.
+For every finding, explain in plain language:
+- **What**: what the issue is (in one sentence)
+- **Where**: file, line, function name
+- **Trigger**: under what conditions this bug manifests
+- **Root cause**: why the code is wrong
+- **Impact**: what happens if not fixed (data loss, security breach, crash, etc.)
 
-## Step 7: Verify fixes (Three-Party Consensus Loop)
+Format example:
+```
+**F-001: SQL Injection** (security/high)
+📍 store/db.go:34 — FindUser()
 
-After applying fixes, run:
+Trigger: user sends malicious string via /user?name=' OR '1'='1
+Root cause: fmt.Sprintf concatenates user input directly into SQL query
+Impact: attacker can read, modify, or delete any data in the database
+```
+
+### 2. Decide
+
+Assess whether there is one obvious fix or multiple valid approaches:
+
+**Case A — Single obvious fix:**
+State the fix, apply it immediately, and briefly report what you did.
+Example: "→ Fix: changed to parameterized query `db.Query("...WHERE name = ?", name)`"
+
+**Case B — Multiple valid approaches or ambiguous trade-off:**
+Use AskUserQuestion with concrete options. Put your recommended option first
+with "(Recommended)". **MUST always include a "Don't fix" option.**
+Example options:
+- "Use parameterized query (Recommended)" — why
+- "Use an ORM layer" — why
+- "Don't fix" — skip this finding
+
+### 3. Fix
+
+After deciding (Case A: immediately; Case B: after user responds), apply the fix
+**before** moving to the next finding. If user chose "Don't fix", record the reason.
+
+## Step 4: Summary + Verify
+
+After ALL findings are processed, present a summary table:
+
+```
+### Round N Summary
+
+| ID    | Issue              | Action       | Detail                          |
+|-------|--------------------|--------------|---------------------------------|
+| F-001 | SQL injection      | Fixed        | Changed to parameterized query  |
+| F-002 | Unused error       | Not fixed    | User: acceptable for demo code  |
+```
+
+Then run verification:
 `xreview review --session <session-id> --message "<summary of what was fixed, dismissed, and reasons>"`
 
-Parse the XML output:
-- If codex confirms all fixes and accepts all dismissals → consensus reached. Proceed to Step 8.
-- If codex disagrees with a dismissal or finds a fix incomplete or discovers new issues:
-  Go back to Step 5 for the unresolved findings only. Present codex's response to the
-  user via AskUserQuestion, explain the disagreement, and let the user decide again.
-- This is a three-way conversation: codex reviews, Claude Code recommends, user decides.
+Parse the result:
+- All resolved → proceed to Step 5.
+- Codex disagrees or finds new issues → go back to Step 3 for unresolved findings only.
+- Maximum 5 rounds → inform user of remaining items, proceed to Step 5.
 
-Repeat until:
-- All findings are resolved (fixed + dismissed with codex agreement) → proceed to Step 8.
-- Maximum 5 rounds reached → inform the user of remaining unresolved items, proceed to Step 8.
-
-## Step 8: Finalize
+## Step 5: Finalize
 
 Run: `xreview report --session <session-id>`
 
@@ -117,11 +144,10 @@ If yes: run `xreview clean --session <session-id>` to remove session data.
 - Do NOT read or write .xreview/ directory files directly. Use only xreview CLI commands.
 - The session ID is in the XML output's session attribute. Track it for resume calls.
 - If any xreview command fails, show the error to the user and ask how to proceed.
-- Preflight only runs once per session. If a later command fails with a codex error,
-  the error message will tell you what happened — no need to re-run preflight.
 - This is a THREE-PARTY REVIEW: Codex (reviewer), you Claude Code (executor), and the
-  user (decision maker). Every finding goes through AskUserQuestion — the user always
-  has final say, including the option to not fix.
+  user (decision maker). For straightforward fixes, act directly to reduce noise.
+  For ambiguous cases, the user always has final say via AskUserQuestion,
+  including the option to not fix.
 - Use --message to convey user decisions and your reasoning to codex. Codex is smart
   enough to reconsider when given good reasoning from the user.
 

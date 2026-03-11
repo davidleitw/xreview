@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/davidleitw/xreview/internal/formatter"
+	"github.com/davidleitw/xreview/internal/version"
 	"github.com/spf13/cobra"
 )
 
@@ -24,7 +25,7 @@ func newPreflightCmd() *cobra.Command {
 				}
 			}
 
-			fmt.Println(formatter.FormatPreflightResult(checks))
+			fmt.Println(formatter.FormatPreflightResult(checks, version.Version))
 
 			if !allPassed {
 				// Return error so exit code is non-zero, but the XML output

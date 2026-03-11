@@ -50,7 +50,7 @@ func FormatReviewResult(sessionID string, round int, verdict string, findings []
 }
 
 // FormatPreflightResult produces XML output for a preflight check.
-func FormatPreflightResult(checks []Check) string {
+func FormatPreflightResult(checks []Check, version string) string {
 	allPassed := true
 	for _, c := range checks {
 		if !c.Passed {
@@ -72,6 +72,7 @@ func FormatPreflightResult(checks []Check) string {
 			xmlEscape(c.Name), c.Passed, xmlEscape(c.Detail))
 	}
 	b.WriteString("  </checks>\n")
+	fmt.Fprintf(&b, `  <version current="%s" />`+"\n", xmlEscape(version))
 	b.WriteString("</xreview-result>")
 
 	return b.String()

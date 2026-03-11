@@ -1,3 +1,127 @@
+# xreview Skill Workflow Optimization — Implementation Plan
+
+> **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Streamline the xreview skill workflow by merging redundant steps, adding finding analysis depth, and implementing smart fix-or-ask decision logic.
+
+**Architecture:** SKILL.md rewrite (both local and plugin copies) + minor preflight CLI enhancement to include version info. No new commands or breaking changes.
+
+**Tech Stack:** Markdown (SKILL.md), Go (preflight command + formatter)
+
+---
+
+## File Map
+
+| File | Action | Responsibility |
+|------|--------|----------------|
+| `.claude/skills/xreview/SKILL.md` | Rewrite | Local skill (Claude Code reads this) |
+| `plugin/skills/review/SKILL.md` | Rewrite | Plugin skill (published version) |
+| `cmd/xreview/cmd_preflight.go` | Modify | Add version info to preflight output |
+| `cmd/xreview/cmd_version.go` | No change | Stays as-is for standalone use |
+| `internal/formatter/xml.go` | Modify | Add version to preflight XML |
+| `internal/formatter/xml_test.go` | Modify | Update test for new preflight format |
+
+---
+
+## Task 1: Enhance preflight to include version info
+
+Merge the version check into preflight output so the skill only needs one command.
+
+**Files:**
+- Modify: `internal/formatter/xml.go:52-78` (FormatPreflightResult)
+- Modify: `internal/formatter/xml.go:10-15` (Check struct)
+- Modify: `cmd/xreview/cmd_preflight.go:39-75` (runPreflightChecks)
+- Test: `internal/formatter/xml_test.go`
+
+- [ ] **Step 1: Update FormatPreflightResult to accept version string**
+
+Add a `version` parameter to `FormatPreflightResult` and emit a `<version>` element inside the output:
+
+```go
+// In xml.go — change signature:
+func FormatPreflightResult(checks []Check, version string) string {
+    // ... existing logic ...
+    // After </checks>, before </xreview-result>:
+    fmt.Fprintf(&b, `  <version current="%s" />`+"\n", xmlEscape(version))
+    // ...
+}
+```
+
+- [ ] **Step 2: Update cmd_preflight.go to pass version**
+
+```go
+// In cmd_preflight.go:
+import "github.com/davidleitw/xreview/internal/version"
+
+// Change the format call:
+fmt.Println(formatter.FormatPreflightResult(checks, version.Version))
+```
+
+- [ ] **Step 3: Update tests**
+
+Update any existing test for `FormatPreflightResult` to pass the version parameter.
+
+- [ ] **Step 4: Verify**
+
+Run: `go test ./internal/formatter/ -v`
+Run: `go vet ./...`
+Expected: PASS
+
+- [ ] **Step 5: Build and smoke test**
+
+```bash
+go build -o /usr/local/bin/xreview ./cmd/xreview/
+xreview preflight
+```
+
+Expected output should include `<version current="dev" />` inside the XML.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add internal/formatter/xml.go internal/formatter/xml_test.go cmd/xreview/cmd_preflight.go
+git commit -m "feat: include version info in preflight output"
+```
+
+---
+
+## Task 2: Rewrite local SKILL.md (`.claude/skills/xreview/SKILL.md`)
+
+This is the file Claude Code actually reads. Complete rewrite following the new flow.
+
+**Files:**
+- Rewrite: `.claude/skills/xreview/SKILL.md`
+
+- [ ] **Step 1: Write new SKILL.md**
+
+Replace entire content with the new workflow. Key changes from current:
+
+**Old flow (8 steps):**
+```
+Step 0: which xreview → version check → install if needed
+Step 1: Ask "Code review? (y/n)"           ← DELETE
+Step 2: xreview preflight                  ← MERGE into Step 0
+Step 3: Determine targets + context
+Step 4: Run review
+Step 5: Present findings (ask every one)   ← REWRITE
+Step 6: Apply fixes (batch after asking)   ← MERGE into Step 3
+Step 7: Verify loop
+Step 8: Finalize
+```
+
+**New flow (6 steps):**
+```
+Step 0: Preflight (single command, includes version + codex check)
+Step 1: Determine targets + context
+Step 2: Run review
+Step 3: Analyze findings + fix (per-finding: explain → decide → fix)
+Step 4: Summary + Verify loop
+Step 5: Finalize
+```
+
+New SKILL.md content:
+
+```markdown
 ---
 name: xreview
 description: >
@@ -154,3 +278,69 @@ If yes: run `xreview clean --session <session-id>` to remove session data.
 ## XML Schema Reference
 
 See [reference.md](reference.md) for the complete XML schema documentation.
+```
+
+- [ ] **Step 2: Verify the file reads correctly**
+
+Read the file back, check for markdown formatting issues.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add .claude/skills/xreview/SKILL.md
+git commit -m "feat: rewrite xreview skill workflow — merge steps, add finding analysis"
+```
+
+---
+
+## Task 3: Sync plugin SKILL.md (`plugin/skills/review/SKILL.md`)
+
+Keep the plugin version in sync. Same content as local, but with plugin-specific install path.
+
+**Files:**
+- Rewrite: `plugin/skills/review/SKILL.md`
+
+- [ ] **Step 1: Copy local SKILL.md to plugin version**
+
+Use the same content from Task 2, but adjust:
+- `name: review` (not `xreview` — the plugin uses `review` as skill name)
+- Install path uses `${CLAUDE_PLUGIN_ROOT}/scripts/install.sh` instead of `go install`
+- `allowed-tools` includes `Bash(${CLAUDE_PLUGIN_ROOT}/scripts/*)`
+
+- [ ] **Step 2: Commit**
+
+```bash
+git add plugin/skills/review/SKILL.md
+git commit -m "feat: sync plugin skill with optimized workflow"
+```
+
+---
+
+## Task 4: Smoke test the full flow
+
+- [ ] **Step 1: Rebuild xreview binary**
+
+```bash
+cd /home/davidleitw/xreview
+go build -o /usr/local/bin/xreview ./cmd/xreview/
+```
+
+- [ ] **Step 2: Test preflight includes version**
+
+```bash
+xreview preflight
+```
+
+Expected: XML output with `<version current="dev" />` and codex checks.
+
+- [ ] **Step 3: Test full review in /tmp/xreview-test**
+
+Reset the test project to its buggy state (git checkout the initial commit),
+then trigger a review in a new Claude Code session to verify the new workflow works end-to-end.
+
+- [ ] **Step 4: Commit all remaining changes**
+
+```bash
+git add -A
+git commit -m "chore: rebuild after workflow optimization"
+```

@@ -97,12 +97,13 @@ func TestFormatPreflightResult_AllPassed(t *testing.T) {
 		{Name: "codex_authenticated", Passed: true, Detail: "logged in"},
 	}
 
-	result := FormatPreflightResult(checks)
+	result := FormatPreflightResult(checks, "1.0.0")
 
 	assertContains(t, result, `status="success"`)
 	assertContains(t, result, `action="preflight"`)
 	assertContains(t, result, `name="codex_installed"`)
 	assertContains(t, result, `passed="true"`)
+	assertContains(t, result, `current="1.0.0"`)
 }
 
 func TestFormatPreflightResult_SomeFailed(t *testing.T) {
@@ -111,7 +112,7 @@ func TestFormatPreflightResult_SomeFailed(t *testing.T) {
 		{Name: "codex_authenticated", Passed: false, Detail: "not logged in"},
 	}
 
-	result := FormatPreflightResult(checks)
+	result := FormatPreflightResult(checks, "1.0.0")
 
 	assertContains(t, result, `status="error"`)
 }
