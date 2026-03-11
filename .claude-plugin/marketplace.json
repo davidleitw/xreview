@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "xreview",
-      "source": "./plugin",
+      "source": "./",
       "description": "AI-powered code review using Codex — three-party consensus between Codex, Claude Code, and you",
       "homepage": "https://github.com/davidleitw/xreview",
       "keywords": ["code-review", "codex", "xreview"]
