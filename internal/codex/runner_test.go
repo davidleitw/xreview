@@ -21,7 +21,8 @@ func TestBuildArgs_Basic(t *testing.T) {
 	assertArgsContain(t, args, "/tmp/schema.json")
 	assertArgsContain(t, args, "--skip-git-repo-check")
 	assertArgsContain(t, args, "skills.allow_implicit_invocation=false")
-	assertArgsContain(t, args, "Review this code")
+	// Prompt is passed via stdin, args should have "-" placeholder
+	assertArgsContain(t, args, "-")
 }
 
 func TestBuildArgs_WithResume(t *testing.T) {
@@ -34,11 +35,12 @@ func TestBuildArgs_WithResume(t *testing.T) {
 
 	args := BuildArgs(req)
 
-	// Resume format: codex exec resume [flags] <session-id> <prompt>
+	// Resume format: codex exec resume [flags] <session-id> -
 	assertArgsContain(t, args, "exec")
 	assertArgsContain(t, args, "resume")
 	assertArgsContain(t, args, "abc-123-def")
-	assertArgsContain(t, args, "Verify fixes")
+	// Prompt via stdin, last arg is "-"
+	assertArgsContain(t, args, "-")
 
 	// Resume should NOT have --output-schema (even if set in request)
 	for _, arg := range args {
@@ -91,7 +93,7 @@ func TestBuildArgs_NoSchema(t *testing.T) {
 	}
 }
 
-func TestBuildArgs_PromptIsLastArg(t *testing.T) {
+func TestBuildArgs_StdinPlaceholderIsLastArg(t *testing.T) {
 	req := ExecRequest{
 		Model:  "gpt-5.3-Codex",
 		Prompt: "Review this code",
@@ -100,14 +102,14 @@ func TestBuildArgs_PromptIsLastArg(t *testing.T) {
 	args := BuildArgs(req)
 
 	last := args[len(args)-1]
-	if last != "Review this code" {
-		t.Errorf("expected prompt as last arg, got %q", last)
+	if last != "-" {
+		t.Errorf("expected stdin placeholder '-' as last arg, got %q", last)
 	}
 
-	// Should have "--" separator before prompt in non-resume mode
+	// Should have "--" separator before "-" in non-resume mode
 	secondLast := args[len(args)-2]
 	if secondLast != "--" {
-		t.Errorf("expected '--' before prompt, got %q", secondLast)
+		t.Errorf("expected '--' before stdin placeholder, got %q", secondLast)
 	}
 }
 

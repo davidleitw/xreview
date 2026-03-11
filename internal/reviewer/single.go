@@ -123,31 +123,42 @@ func (r *SingleReviewer) Verify(ctx context.Context, req VerifyRequest) (*Verify
 		return nil, fmt.Errorf("load session: %w", err)
 	}
 
-	// 2. Collect files
+	// 2. Collect files from original session targets
 	files, err := r.collector.Collect(ctx, sess.Targets, sess.TargetMode)
 	if err != nil {
 		return nil, err
 	}
 
-	// 3. Build resume prompt
+	// 3. Collect extra files if provided
+	var additionalContent string
+	if len(req.ExtraTargets) > 0 || req.ExtraTargetMode == "git-uncommitted" {
+		extraFiles, err := r.collector.Collect(ctx, req.ExtraTargets, req.ExtraTargetMode)
+		if err != nil {
+			return nil, err
+		}
+		_, additionalContent = formatFilesForPrompt(extraFiles)
+	}
+
+	// 4. Build resume prompt
 	_, updatedFiles := formatFilesForPrompt(files)
 	promptStr, err := r.builder.BuildResume(prompt.ResumeInput{
 		Message:          req.Message,
 		PreviousFindings: r.builder.FormatFindingsForPrompt(sess.Findings),
 		UpdatedFiles:     updatedFiles,
+		AdditionalFiles:  additionalContent,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("build resume prompt: %w", err)
 	}
 
-	// 4. Write temp schema
+	// 5. Write temp schema
 	schemaPath, cleanup, err := schema.WriteTempSchema()
 	if err != nil {
 		return nil, fmt.Errorf("write schema: %w", err)
 	}
 	defer cleanup()
 
-	// 5. Determine resume vs fresh
+	// 6. Determine resume vs fresh
 	timeout := time.Duration(req.Timeout) * time.Second
 	if timeout == 0 {
 		timeout = time.Duration(r.cfg.DefaultTimeout) * time.Second
@@ -168,13 +179,13 @@ func (r *SingleReviewer) Verify(ctx context.Context, req VerifyRequest) (*Verify
 		return nil, err
 	}
 
-	// 6. Parse response
+	// 7. Parse response
 	codexResp, err := r.parser.Parse(execResult.Stdout)
 	if err != nil {
 		return nil, fmt.Errorf("parse codex output: %w", err)
 	}
 
-	// 7. Merge findings
+	// 8. Merge findings
 	sess.Round++
 	sess.Status = session.StatusVerifying
 	if execResult.CodexSessionID != "" {

@@ -25,10 +25,12 @@ type ReviewResult struct {
 
 // VerifyRequest holds parameters for a follow-up verification round.
 type VerifyRequest struct {
-	SessionID  string
-	Message    string
-	FullRescan bool
-	Timeout    int
+	SessionID       string
+	Message         string
+	FullRescan      bool
+	Timeout         int
+	ExtraTargets    []string // additional files to include in resume
+	ExtraTargetMode string   // "files" or "git-uncommitted" for extra targets
 }
 
 // VerifyResult holds the output of a verification round.

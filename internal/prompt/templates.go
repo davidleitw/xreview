@@ -48,7 +48,15 @@ Developer message: "{{.Message}}"
 {{.UpdatedFiles}}
 
 ===== END OF FILES =====
+{{if .AdditionalFiles}}
+===== ADDITIONAL FILES =====
 
+The developer has requested you also review these additional files:
+
+{{.AdditionalFiles}}
+
+===== END OF ADDITIONAL FILES =====
+{{end}}
 For each previous finding, determine:
 1. If claimed fixed: verify the fix is actually correct and complete.
 2. If claimed false positive: evaluate whether the dismissal is reasonable.
@@ -56,4 +64,25 @@ For each previous finding, determine:
 
 Also check: did any of the changes introduce NEW issues?
 
-New findings (not in the previous list) should have status "open" and a new unique "id".`
+New findings (not in the previous list) should have status "open" and a new unique "id".
+
+Respond with ONLY a JSON object (no markdown fences, no explanation before or after).
+Use this exact schema:
+{
+  "verdict": "APPROVED or REVISE",
+  "summary": "brief summary of your review",
+  "findings": [
+    {
+      "id": "F-001",
+      "severity": "high|medium|low",
+      "category": "security|logic|performance|error-handling",
+      "file": "path/to/file",
+      "line": 42,
+      "description": "what is wrong",
+      "suggestion": "how to fix it",
+      "code_snippet": "the relevant code",
+      "status": "open|fixed|dismissed|reopened",
+      "verification_note": "verification details or empty string"
+    }
+  ]
+}`

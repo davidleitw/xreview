@@ -20,6 +20,7 @@ type ResumeInput struct {
 	Message          string
 	PreviousFindings string
 	UpdatedFiles     string
+	AdditionalFiles  string // optional: extra files added via --files on resume
 }
 
 // Builder assembles prompts for codex.

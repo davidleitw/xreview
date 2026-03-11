@@ -6,9 +6,20 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/davidleitw/xreview/internal/config"
 )
+
+// skipDirs are directories always skipped during recursive traversal.
+var skipDirs = map[string]bool{
+	".git":      true,
+	".hg":       true,
+	".svn":      true,
+	".xreview":  true,
+	"node_modules": true,
+	"__pycache__":  true,
+}
 
 // FileContent holds a file's path and its content with line numbers.
 type FileContent struct {
@@ -70,6 +81,11 @@ func (c *collector) Collect(ctx context.Context, targets []string, mode string) 
 			return nil, fmt.Errorf("read %s: %w", p, err)
 		}
 
+		// Skip binary / non-UTF-8 files
+		if !utf8.Valid(content) {
+			continue
+		}
+
 		lines := strings.Count(string(content), "\n")
 		if len(content) > 0 && content[len(content)-1] != '\n' {
 			lines++
@@ -114,6 +130,9 @@ func (c *collector) expandTargets(targets []string) ([]string, error) {
 				return walkErr
 			}
 			if fi.IsDir() {
+				if skipDirs[fi.Name()] {
+					return filepath.SkipDir
+				}
 				return nil
 			}
 			paths = append(paths, path)

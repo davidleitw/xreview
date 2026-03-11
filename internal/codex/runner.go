@@ -42,6 +42,8 @@ func NewRunner() Runner {
 }
 
 // BuildArgs constructs the codex exec command arguments from an ExecRequest.
+// The prompt is always passed via stdin (using "-") to avoid ARG_MAX limits
+// with large diffs. The caller must pipe req.Prompt to stdin.
 func BuildArgs(req ExecRequest) []string {
 	var args []string
 
@@ -55,7 +57,7 @@ func BuildArgs(req ExecRequest) []string {
 
 		args = append(args, "--skip-git-repo-check")
 		args = append(args, "-c", "skills.allow_implicit_invocation=false")
-		args = append(args, req.ResumeSessionID, req.Prompt)
+		args = append(args, req.ResumeSessionID, "-")
 	} else {
 		args = []string{"exec"}
 
@@ -69,7 +71,7 @@ func BuildArgs(req ExecRequest) []string {
 
 		args = append(args, "--skip-git-repo-check")
 		args = append(args, "-c", "skills.allow_implicit_invocation=false")
-		args = append(args, "--", req.Prompt)
+		args = append(args, "--", "-")
 	}
 
 	return args
@@ -84,6 +86,8 @@ func (r *runner) Exec(ctx context.Context, req ExecRequest) (*ExecResult, error)
 
 	args := BuildArgs(req)
 	cmd := exec.CommandContext(ctx, "codex", args...)
+
+	cmd.Stdin = strings.NewReader(req.Prompt)
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout

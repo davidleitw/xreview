@@ -134,6 +134,71 @@ func TestFormatFindingsForPrompt_NoOptionalFields(t *testing.T) {
 	assertNotContains(t, result, "Verification:")
 }
 
+func TestBuildResume_ContainsJSONInstruction(t *testing.T) {
+	b, err := NewBuilder()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	input := ResumeInput{
+		Message:          "Fixed F001",
+		PreviousFindings: "[F001] (high/security) main.go:42",
+		UpdatedFiles:     "package main",
+	}
+
+	result, err := b.BuildResume(input)
+	if err != nil {
+		t.Fatalf("BuildResume failed: %v", err)
+	}
+
+	assertContains(t, result, "\"verdict\"")
+	assertContains(t, result, "\"findings\"")
+	assertContains(t, result, "JSON")
+}
+
+func TestBuildResume_WithAdditionalFiles(t *testing.T) {
+	b, err := NewBuilder()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	input := ResumeInput{
+		Message:          "Fixed F001, also review tests",
+		PreviousFindings: "[F001] (high/security) main.go:42",
+		UpdatedFiles:     "package main",
+		AdditionalFiles:  "--- test_main.go ---\npackage main_test",
+	}
+
+	result, err := b.BuildResume(input)
+	if err != nil {
+		t.Fatalf("BuildResume failed: %v", err)
+	}
+
+	assertContains(t, result, "ADDITIONAL FILES")
+	assertContains(t, result, "test_main.go")
+}
+
+func TestBuildResume_NoAdditionalFiles(t *testing.T) {
+	b, err := NewBuilder()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	input := ResumeInput{
+		Message:          "Fixed F001",
+		PreviousFindings: "[F001]",
+		UpdatedFiles:     "package main",
+		AdditionalFiles:  "",
+	}
+
+	result, err := b.BuildResume(input)
+	if err != nil {
+		t.Fatalf("BuildResume failed: %v", err)
+	}
+
+	assertNotContains(t, result, "ADDITIONAL FILES")
+}
+
 func assertContains(t *testing.T, s, substr string) {
 	t.Helper()
 	if !strings.Contains(s, substr) {

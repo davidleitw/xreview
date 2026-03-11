@@ -40,9 +40,6 @@ func newReviewCmd() *cobra.Command {
 			if !hasSession && !hasFiles && !hasGit {
 				return fmt.Errorf("new review requires --files or --git-uncommitted")
 			}
-			if hasSession && (hasFiles || hasGit) {
-				return fmt.Errorf("--files/--git-uncommitted cannot be used with --session")
-			}
 			if !hasSession && message != "" {
 				return fmt.Errorf("--message requires --session")
 			}
@@ -73,12 +70,22 @@ func newReviewCmd() *cobra.Command {
 			)
 
 			if sessionID != "" {
-				result, err := rev.Verify(cmd.Context(), reviewer.VerifyRequest{
+				req := reviewer.VerifyRequest{
 					SessionID:  sessionID,
 					Message:    message,
 					FullRescan: fullRescan,
 					Timeout:    timeout,
-				})
+				}
+
+				// Pass extra files/git targets if provided
+				if gitUncommitted {
+					req.ExtraTargetMode = "git-uncommitted"
+				} else if files != "" {
+					req.ExtraTargets = splitTargets(files)
+					req.ExtraTargetMode = "files"
+				}
+
+				result, err := rev.Verify(cmd.Context(), req)
 				if err != nil {
 					return printErr("review", classifyReviewError(err), err)
 				}
@@ -146,7 +153,7 @@ func classifyReviewError(err error) string {
 	switch {
 	case strings.Contains(msg, "codex CLI is not installed"):
 		return formatter.ErrCodexNotFound
-	case strings.Contains(msg, "session") && strings.Contains(msg, "not found"):
+	case strings.Contains(msg, "\" not found"):
 		return formatter.ErrSessionNotFound
 	case strings.Contains(msg, "no files to review"):
 		return formatter.ErrNoTargets

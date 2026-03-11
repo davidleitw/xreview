@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -45,11 +46,6 @@ func TestReviewCmd_FlagValidation(t *testing.T) {
 			name:    "files and git-uncommitted",
 			args:    []string{"--files", "a.go", "--git-uncommitted"},
 			wantErr: "--files and --git-uncommitted are mutually exclusive",
-		},
-		{
-			name:    "files with session",
-			args:    []string{"--files", "a.go", "--session", "s1"},
-			wantErr: "--files/--git-uncommitted cannot be used with --session",
 		},
 		{
 			name:    "message without session",
@@ -99,6 +95,41 @@ func TestCleanCmd_RequiresSession(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "--session is required") {
 		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestReviewCmd_SessionWithFilesAllowed(t *testing.T) {
+	root := newRootCmd()
+	// This should pass PreRunE validation (will fail later in RunE because
+	// session doesn't exist, but that's expected — we're testing flag validation)
+	root.SetArgs([]string{"review", "--session", "xr-fake", "--files", "a.go", "--message", "check these too"})
+	err := root.Execute()
+	if err == nil {
+		t.Skip("no real session, but PreRunE should have passed")
+	}
+	// Should NOT be the old mutual-exclusion error
+	if strings.Contains(err.Error(), "--files/--git-uncommitted cannot be used with --session") {
+		t.Error("--session + --files should now be allowed")
+	}
+}
+
+func TestClassifyReviewError_DoesNotFalsePositiveOnCodexStderr(t *testing.T) {
+	// Simulates codex failing with stderr that contains "session id: ..."
+	// and an error message containing "not found" from a different context.
+	// This is the real pattern: runner.go wraps stderr into the error message.
+	err := fmt.Errorf("codex exited with error: exit status 1\nstderr: session id: 019cdb8c-6b73-79e3-8860-190f58f25ddc\ncommand not found: some-tool")
+	code := classifyReviewError(err)
+	if code == "SESSION_NOT_FOUND" {
+		t.Errorf("should not classify codex stderr as SESSION_NOT_FOUND, got %s", code)
+	}
+}
+
+func TestClassifyReviewError_RealSessionNotFound(t *testing.T) {
+	// Simulates actual session-not-found from session/manager.go
+	err := fmt.Errorf("load session: session %q not found", "xr-20260311-abc123")
+	code := classifyReviewError(err)
+	if code != "SESSION_NOT_FOUND" {
+		t.Errorf("expected SESSION_NOT_FOUND, got %s", code)
 	}
 }
 

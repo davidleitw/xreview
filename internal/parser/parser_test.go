@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -37,6 +38,28 @@ func TestExtractJSON_NoJSON(t *testing.T) {
 	_, err := ExtractJSON("some random text without json")
 	if err == nil {
 		t.Fatal("expected error for non-JSON input")
+	}
+}
+
+func TestExtractJSON_EmbeddedInText(t *testing.T) {
+	input := "Here is my review:\n{\"verdict\":\"APPROVED\",\"summary\":\"looks good\",\"findings\":[]}\nDone."
+	result, err := ExtractJSON(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.HasPrefix(result, "{") {
+		t.Errorf("expected JSON starting with '{', got %q", result[:20])
+	}
+}
+
+func TestExtractJSON_EmbeddedInTextWithNestedBraces(t *testing.T) {
+	input := "Review:\n{\"verdict\":\"REVISE\",\"summary\":\"issues\",\"findings\":[{\"id\":\"F-001\"}]}\nEnd."
+	result, err := ExtractJSON(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.HasPrefix(result, "{") {
+		t.Errorf("expected JSON starting with '{', got %q", result[:20])
 	}
 }
 
