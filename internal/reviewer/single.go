@@ -236,6 +236,9 @@ func codexFindingsToFindings(cf []session.CodexFinding) []session.Finding {
 			Suggestion:       f.Suggestion,
 			CodeSnippet:      f.CodeSnippet,
 			VerificationNote: f.VerificationNote,
+			Trigger:          f.Trigger,
+			CascadeImpact:    f.CascadeImpact,
+			FixAlternatives:  f.FixAlternatives,
 		}
 	}
 	return findings
