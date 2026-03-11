@@ -458,6 +458,76 @@ func TestCodexFindingsToFindings_EnrichedFields(t *testing.T) {
 	}
 }
 
+func TestMergeFindings_UpdateEnrichedFields(t *testing.T) {
+	existing := []session.Finding{
+		{
+			ID:       "F001",
+			Status:   "open",
+			Trigger:  "old trigger",
+			CascadeImpact: []string{"old cascade"},
+			FixAlternatives: []session.FixAlternative{
+				{Label: "A", Description: "old fix", Effort: "minimal", Recommended: true},
+			},
+		},
+	}
+	incoming := []session.CodexFinding{
+		{
+			ID:       "F001",
+			Status:   "open",
+			Trigger:  "updated trigger",
+			CascadeImpact: []string{"new cascade 1", "new cascade 2"},
+			FixAlternatives: []session.FixAlternative{
+				{Label: "A", Description: "updated fix", Effort: "minimal", Recommended: true},
+				{Label: "B", Description: "new option", Effort: "large", Recommended: false},
+			},
+		},
+	}
+
+	result := mergeFindings(existing, incoming)
+
+	f := result[0]
+	if f.Trigger != "updated trigger" {
+		t.Errorf("trigger not updated: got %q", f.Trigger)
+	}
+	if len(f.CascadeImpact) != 2 {
+		t.Fatalf("expected 2 cascade impacts, got %d", len(f.CascadeImpact))
+	}
+	if len(f.FixAlternatives) != 2 {
+		t.Fatalf("expected 2 alternatives, got %d", len(f.FixAlternatives))
+	}
+}
+
+func TestMergeFindings_AddNewWithEnrichedFields(t *testing.T) {
+	existing := []session.Finding{}
+	incoming := []session.CodexFinding{
+		{
+			ID:          "F001",
+			Severity:    "high",
+			Category:    "security",
+			File:        "db.go",
+			Line:        19,
+			Description: "SQL injection",
+			Trigger:     "malicious input",
+			CascadeImpact: []string{"handler.go:Handle()"},
+			FixAlternatives: []session.FixAlternative{
+				{Label: "A", Description: "fix", Effort: "minimal", Recommended: true},
+			},
+		},
+	}
+
+	result := mergeFindings(existing, incoming)
+
+	if len(result) != 1 {
+		t.Fatalf("expected 1 finding, got %d", len(result))
+	}
+	if result[0].Trigger != "malicious input" {
+		t.Errorf("trigger mismatch: got %q", result[0].Trigger)
+	}
+	if len(result[0].FixAlternatives) != 1 {
+		t.Fatalf("expected 1 alternative, got %d", len(result[0].FixAlternatives))
+	}
+}
+
 func TestFormatFilesForPrompt(t *testing.T) {
 	files := []collector.FileContent{
 		{Path: "main.go", Content: "package main\n", Lines: 1},

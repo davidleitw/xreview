@@ -267,6 +267,16 @@ func mergeFindings(existing []session.Finding, incoming []session.CodexFinding) 
 			if cf.Suggestion != "" {
 				existing[idx].Suggestion = cf.Suggestion
 			}
+			// Preserve enriched data from earlier rounds when verification returns sparse findings
+			if cf.Trigger != "" {
+				existing[idx].Trigger = cf.Trigger
+			}
+			if len(cf.CascadeImpact) > 0 {
+				existing[idx].CascadeImpact = cf.CascadeImpact
+			}
+			if len(cf.FixAlternatives) > 0 {
+				existing[idx].FixAlternatives = cf.FixAlternatives
+			}
 		} else {
 			// New finding
 			existing = append(existing, session.Finding{
@@ -280,6 +290,9 @@ func mergeFindings(existing []session.Finding, incoming []session.CodexFinding) 
 				Suggestion:       cf.Suggestion,
 				CodeSnippet:      cf.CodeSnippet,
 				VerificationNote: cf.VerificationNote,
+				Trigger:          cf.Trigger,
+				CascadeImpact:    cf.CascadeImpact,
+				FixAlternatives:  cf.FixAlternatives,
 			})
 		}
 	}
