@@ -199,6 +199,57 @@ func TestBuildResume_NoAdditionalFiles(t *testing.T) {
 	assertNotContains(t, result, "ADDITIONAL FILES")
 }
 
+func TestBuildResume_ContainsEnrichedFields(t *testing.T) {
+	b, err := NewBuilder()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	input := ResumeInput{
+		Message:          "Fixed F001",
+		PreviousFindings: "[F001] (high/security) main.go:42",
+		UpdatedFiles:     "package main",
+	}
+
+	result, err := b.BuildResume(input)
+	if err != nil {
+		t.Fatalf("BuildResume failed: %v", err)
+	}
+
+	assertContains(t, result, `"trigger"`)
+	assertContains(t, result, `"cascade_impact"`)
+	assertContains(t, result, `"fix_alternatives"`)
+}
+
+func TestFormatFindingsForPrompt_EnrichedFields(t *testing.T) {
+	b, _ := NewBuilder()
+
+	findings := []session.Finding{
+		{
+			ID:          "F001",
+			Severity:    "high",
+			Category:    "security",
+			Status:      "open",
+			File:        "db.go",
+			Line:        19,
+			Description: "SQL injection",
+			Trigger:     "attacker sends malicious id",
+			CascadeImpact: []string{
+				"handler/task.go:GetTaskHandler() — passes input directly",
+			},
+			FixAlternatives: []session.FixAlternative{
+				{Label: "A", Description: "Parameterized query", Effort: "minimal", Recommended: true},
+			},
+		},
+	}
+
+	result := b.FormatFindingsForPrompt(findings)
+
+	assertContains(t, result, "Trigger: attacker sends malicious id")
+	assertContains(t, result, "Cascade: handler/task.go:GetTaskHandler()")
+	assertContains(t, result, "Fix A (recommended): Parameterized query [minimal]")
+}
+
 func assertContains(t *testing.T, s, substr string) {
 	t.Helper()
 	if !strings.Contains(s, substr) {

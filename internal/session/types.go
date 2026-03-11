@@ -46,7 +46,18 @@ type Finding struct {
 	Description      string `json:"description"`
 	Suggestion       string `json:"suggestion"`
 	CodeSnippet      string `json:"code_snippet,omitempty"`
-	VerificationNote string `json:"verification_note,omitempty"`
+	VerificationNote string           `json:"verification_note,omitempty"`
+	Trigger          string           `json:"trigger,omitempty"`
+	CascadeImpact    []string         `json:"cascade_impact,omitempty"`
+	FixAlternatives  []FixAlternative `json:"fix_alternatives,omitempty"`
+}
+
+// FixAlternative represents one possible fix approach for a finding.
+type FixAlternative struct {
+	Label       string `json:"label"`
+	Description string `json:"description"`
+	Effort      string `json:"effort"`
+	Recommended bool   `json:"recommended"`
 }
 
 // FindingSummary holds aggregated counts of finding statuses.
@@ -91,5 +102,8 @@ type CodexFinding struct {
 	Suggestion       string `json:"suggestion"`
 	CodeSnippet      string `json:"code_snippet,omitempty"`
 	Status           string `json:"status,omitempty"`
-	VerificationNote string `json:"verification_note,omitempty"`
+	VerificationNote string           `json:"verification_note,omitempty"`
+	Trigger          string           `json:"trigger,omitempty"`
+	CascadeImpact    []string         `json:"cascade_impact,omitempty"`
+	FixAlternatives  []FixAlternative `json:"fix_alternatives,omitempty"`
 }
