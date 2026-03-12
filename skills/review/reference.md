@@ -12,7 +12,18 @@ All output is wrapped in:
 
 ### <finding>
 Attributes: id, severity (high|medium|low), category, status (open|fixed|dismissed|reopened)
-Children: <location>, <description>, <suggestion>, <code-snippet>, <verification>
+Children: <location>, <description>, <suggestion>, <code-snippet>, <verification>, <trigger>, <cascade-impact>, <fix-alternatives>
+
+### <trigger>
+Content: Concrete trigger condition (specific input/scenario). Child of `<finding>`.
+
+### <cascade-impact>
+Children: `<impact>` elements. Each describes a codebase location affected by fixing this finding.
+
+### <fix-alternatives>
+Children: `<alternative>` elements.
+`<alternative>` attributes: label (A/B/C), effort (minimal|moderate|large), recommended (true|false)
+Content: description of the fix approach.
 
 ### <location>
 Attributes: file (path), line (number)
@@ -27,15 +38,8 @@ Content: human-readable error description with suggested action
 ### <checks> (preflight only)
 Children: <check name="..." passed="true|false" detail="..." />
 
-### <version> (preflight)
-Attributes: current, latest (optional), update-available (true|false, optional)
-When update-available="true", the skill should run `xreview self-update` before proceeding.
-
 ### <version> (version only)
 Attributes: current, latest, outdated (true|false), update-command
-
-### <version> (self-update only)
-Attributes: new (the version that was installed)
 
 ### <report> (report only)
 Attributes: path (file path to generated report)
@@ -54,4 +58,3 @@ Attributes: path (file path to generated report)
 | NO_TARGETS | no files to review |
 | INVALID_FLAGS | invalid flag combination |
 | UPDATE_FAILED | self-update failed |
-| VERSION_CHECK_FAILED | could not check for latest version |

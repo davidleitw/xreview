@@ -3,6 +3,7 @@ package reviewer
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/davidleitw/xreview/internal/codex"
@@ -610,18 +611,150 @@ func TestReview_EnrichedFieldsEndToEnd(t *testing.T) {
 	}
 }
 
-func TestFormatFilesForPrompt(t *testing.T) {
+func TestBuildFetchMethod_Files(t *testing.T) {
+	result := buildFetchMethod([]string{"main.go", "util.go"}, "files")
+
+	if !strings.Contains(result, "main.go") {
+		t.Error("expected main.go in fetch method")
+	}
+	if !strings.Contains(result, "util.go") {
+		t.Error("expected util.go in fetch method")
+	}
+	if strings.Contains(result, "git diff") {
+		t.Error("files mode should not use git diff")
+	}
+	if !strings.Contains(result, "Read the following files") {
+		t.Error("expected read instruction")
+	}
+}
+
+func TestBuildFetchMethod_GitUncommitted(t *testing.T) {
+	result := buildFetchMethod(nil, "git-uncommitted")
+
+	if !strings.Contains(result, "git diff") {
+		t.Error("expected git diff in fetch method")
+	}
+	if !strings.Contains(result, "git diff --cached") {
+		t.Error("expected git diff --cached in fetch method")
+	}
+	if !strings.Contains(result, "git ls-files") {
+		t.Error("expected git ls-files in fetch method")
+	}
+}
+
+func TestBuildFileListSummary(t *testing.T) {
 	files := []collector.FileContent{
 		{Path: "main.go", Content: "package main\n", Lines: 1},
-		{Path: "util.go", Content: "package util\n", Lines: 1},
+		{Path: "util.go", Content: "package util\n", Lines: 15},
 	}
 
-	list, content := formatFilesForPrompt(files)
+	result := buildFileListSummary(files)
 
-	if list == "" {
-		t.Error("expected non-empty file list")
+	if !strings.Contains(result, "main.go (1 lines)") {
+		t.Errorf("expected main.go (1 lines), got: %s", result)
 	}
-	if content == "" {
-		t.Error("expected non-empty content")
+	if !strings.Contains(result, "util.go (15 lines)") {
+		t.Errorf("expected util.go (15 lines), got: %s", result)
+	}
+}
+
+func TestReview_NoFileContentInPrompt(t *testing.T) {
+	mgr := newMockManager()
+	coll := &mockCollector{
+		files: []collector.FileContent{
+			{Path: "main.go", Content: "package main\n", Lines: 1},
+		},
+	}
+
+	var capturedPromptInput prompt.FirstRoundInput
+	bldr := &mockBuilder{
+		firstRoundFn: func(input prompt.FirstRoundInput) (string, error) {
+			capturedPromptInput = input
+			return "prompt", nil
+		},
+	}
+
+	runner := &mockRunner{
+		execFn: func(ctx context.Context, req codex.ExecRequest) (*codex.ExecResult, error) {
+			return &codex.ExecResult{
+				Stdout:         "{}",
+				CodexSessionID: "codex-sess-789",
+			}, nil
+		},
+	}
+	psr := &mockParser{
+		parseFn: func(stdout string) (*session.CodexResponse, error) {
+			return &session.CodexResponse{Verdict: "APPROVED"}, nil
+		},
+	}
+	cfg := &config.Config{CodexModel: "gpt-5.3-Codex", DefaultTimeout: 180}
+
+	r := NewSingleReviewer(runner, bldr, psr, mgr, coll, cfg)
+
+	_, err := r.Review(context.Background(), ReviewRequest{
+		Targets:    []string{"main.go"},
+		TargetMode: "files",
+		Context:    "test context",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// FetchMethod should instruct Codex to read files (not git diff)
+	if capturedPromptInput.FetchMethod == "" {
+		t.Error("expected FetchMethod to be set")
+	}
+	if !strings.Contains(capturedPromptInput.FetchMethod, "main.go") {
+		t.Errorf("expected FetchMethod to reference target file, got: %s", capturedPromptInput.FetchMethod)
+	}
+	if strings.Contains(capturedPromptInput.FetchMethod, "git diff") {
+		t.Error("files mode should not use git diff")
+	}
+	if capturedPromptInput.FileList == "" {
+		t.Error("expected FileList to be set")
+	}
+}
+
+func TestReview_GitUncommitted_UseGitDiff(t *testing.T) {
+	mgr := newMockManager()
+	coll := &mockCollector{
+		files: []collector.FileContent{
+			{Path: "main.go", Content: "package main\n", Lines: 1},
+		},
+	}
+
+	var capturedPromptInput prompt.FirstRoundInput
+	bldr := &mockBuilder{
+		firstRoundFn: func(input prompt.FirstRoundInput) (string, error) {
+			capturedPromptInput = input
+			return "prompt", nil
+		},
+	}
+
+	runner := &mockRunner{
+		execFn: func(ctx context.Context, req codex.ExecRequest) (*codex.ExecResult, error) {
+			return &codex.ExecResult{Stdout: "{}", CodexSessionID: "codex-sess-789"}, nil
+		},
+	}
+	psr := &mockParser{
+		parseFn: func(stdout string) (*session.CodexResponse, error) {
+			return &session.CodexResponse{Verdict: "APPROVED"}, nil
+		},
+	}
+	cfg := &config.Config{CodexModel: "gpt-5.3-Codex", DefaultTimeout: 180}
+
+	r := NewSingleReviewer(runner, bldr, psr, mgr, coll, cfg)
+
+	_, err := r.Review(context.Background(), ReviewRequest{
+		TargetMode: "git-uncommitted",
+		Context:    "test",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// git-uncommitted mode should use git diff commands
+	if !strings.Contains(capturedPromptInput.FetchMethod, "git diff") {
+		t.Errorf("expected git diff in FetchMethod, got: %s", capturedPromptInput.FetchMethod)
 	}
 }

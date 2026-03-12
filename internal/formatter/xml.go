@@ -67,24 +67,58 @@ func FormatReviewResult(sessionID string, round int, verdict string, findings []
 	// Append agent instructions when there are open findings to guide Claude Code behavior.
 	if summary.Open > 0 {
 		b.WriteString("\n\n")
-		b.WriteString(buildAgentInstructions(findings, summary))
+		b.WriteString(buildAgentInstructions(findings, summary, sessionID))
 	}
 
 	return b.String()
 }
 
 // buildAgentInstructions generates inline instructions appended after XML output
-// to guide Claude Code on how to present findings to the user.
-func buildAgentInstructions(findings []session.Finding, summary session.FindingSummary) string {
+// to guide Claude Code on how to verify and present findings to the user.
+func buildAgentInstructions(findings []session.Finding, summary session.FindingSummary, sessionID string) string {
 	var b strings.Builder
 
 	b.WriteString("<agent-instructions>\n")
-	b.WriteString("You MUST present ALL findings above as a Fix Plan BEFORE making any code changes.\n")
-	b.WriteString("This is a hard gate — do NOT skip it, do NOT start fixing.\n\n")
 
-	b.WriteString("For EACH finding, include:\n")
+	// Phase 1: Verify findings
+	b.WriteString("== PHASE 1: VERIFY FINDINGS (BLOCKING — do this BEFORE presenting anything to user) ==\n\n")
+	b.WriteString("You are an INDEPENDENT reviewer. Codex findings may contain false positives.\n")
+	b.WriteString("You MUST verify each finding by reading the actual code BEFORE building the Fix Plan.\n\n")
+	b.WriteString("REQUIRED ACTIONS for EACH finding — you must SHOW YOUR WORK:\n\n")
+	b.WriteString("1. USE the Read tool to read the source file at the specified line.\n")
+	b.WriteString("   You MUST actually call the Read tool — do NOT rely on memory or assumptions.\n")
+	b.WriteString("2. QUOTE the relevant code lines you read (2-5 lines around the issue).\n")
+	b.WriteString("3. EXPLAIN in 1-2 sentences why this finding is valid or not, based on what you read.\n")
+	b.WriteString("4. CLASSIFY:\n")
+	b.WriteString("   - ✅ CONFIRMED — you saw the issue in the actual code\n")
+	b.WriteString("   - ❌ SUSPECT — the code does NOT match what Codex described (explain why)\n\n")
+	b.WriteString("Present verification results in this format BEFORE the Fix Plan:\n\n")
+	b.WriteString("```\n")
+	b.WriteString("## Verification Results\n\n")
+	b.WriteString("### F-001: [title]\n")
+	b.WriteString("Code at file.go:42:\n")
+	b.WriteString("  > line of code from Read tool\n")
+	b.WriteString("  > line of code from Read tool\n")
+	b.WriteString("Analysis: [why this is/isn't a real issue]\n")
+	b.WriteString("Verdict: ✅ CONFIRMED / ❌ SUSPECT\n")
+	b.WriteString("```\n\n")
+	b.WriteString("If you skip the Read tool or present findings without showing the code you read,\n")
+	b.WriteString("you are acting as a blind proxy — which defeats the entire purpose of this review.\n\n")
+	fmt.Fprintf(&b, "For SUSPECT findings, CHALLENGE Codex before dropping them:\n")
+	fmt.Fprintf(&b, "  Run: xreview review --session %s --message \"F-XXX: I read the code at [file:line] and believe this is a false positive because [your reasoning with code evidence]. Please re-evaluate.\"\n", sessionID)
+	b.WriteString("  If Codex agrees → drop finding. If Codex provides valid counter-reasoning → mark CONFIRMED.\n")
+	b.WriteString("  If disagreement persists → present both perspectives to user.\n\n")
+
+	// Phase 2: Fix Plan
+	b.WriteString("== PHASE 2: FIX PLAN (only CONFIRMED findings from Phase 1) ==\n\n")
+	b.WriteString("ONLY after completing ALL Phase 1 verifications, present the Fix Plan.\n")
+	b.WriteString("Include ONLY findings you marked ✅ CONFIRMED. Drop all ❌ SUSPECT findings\n")
+	b.WriteString("(unless Codex challenged your reasoning and you changed your mind).\n\n")
+	b.WriteString("This is a hard gate — do NOT start fixing code until user approves.\n\n")
+
+	b.WriteString("For EACH confirmed finding, include:\n")
 	b.WriteString("1. Header: ### F-XXX: title (category/severity) with file:line\n")
-	b.WriteString("2. Trigger: copy the <trigger> content — do NOT rephrase or omit\n")
+	b.WriteString("2. Trigger: the trigger condition — as verified by YOUR code reading, not just copied from Codex\n")
 	b.WriteString("3. Impact: what happens if exploited/triggered\n")
 	b.WriteString("4. Cascade: list every <impact> from <cascade-impact> — these show what else breaks\n")
 	b.WriteString("5. Fix options: list ALL <alternative> entries, mark which is recommended.\n")
@@ -107,10 +141,10 @@ func buildAgentInstructions(findings []session.Finding, summary session.FindingS
 	}
 
 	if highCount > 0 {
-		fmt.Fprintf(&b, "⚠ %d HIGH severity finding(s) — present full analysis for each.\n", highCount)
+		fmt.Fprintf(&b, "⚠ %d HIGH severity finding(s) — verify with extra care for each.\n", highCount)
 	}
 	if mediumCount > 0 {
-		fmt.Fprintf(&b, "%d MEDIUM severity finding(s) — include analysis, can be shorter than high.\n", mediumCount)
+		fmt.Fprintf(&b, "%d MEDIUM severity finding(s) — verify with extra care, can be shorter than high.\n", mediumCount)
 	}
 	if lowCount > 0 {
 		fmt.Fprintf(&b, "%d LOW severity finding(s) — brief description with fix options is sufficient.\n", lowCount)

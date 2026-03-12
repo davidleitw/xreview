@@ -295,7 +295,9 @@ func TestFormatReviewResult_AgentInstructions_Present(t *testing.T) {
 
 	// Agent instructions block must appear after </xreview-result>
 	assertContains(t, result, "</xreview-result>\n\n<agent-instructions>")
-	assertContains(t, result, "Fix Plan BEFORE making any code changes")
+	assertContains(t, result, "PHASE 1: VERIFY FINDINGS")
+	assertContains(t, result, "PHASE 2: FIX PLAN")
+	assertContains(t, result, "do NOT start fixing code until user approves")
 	assertContains(t, result, "AskUserQuestion")
 	assertContains(t, result, "1 HIGH severity")
 	assertContains(t, result, "1 MEDIUM severity")
@@ -346,6 +348,29 @@ func assertContains(t *testing.T, s, substr string) {
 	if !strings.Contains(s, substr) {
 		t.Errorf("expected output to contain %q, got:\n%s", substr, s)
 	}
+}
+
+func TestBuildAgentInstructions_ContainsVerificationStep(t *testing.T) {
+	findings := []session.Finding{
+		{
+			ID: "F001", Severity: "high", Category: "security", Status: "open",
+			File: "db.go", Line: 19, Description: "SQL injection",
+		},
+	}
+	summary := session.FindingSummary{Total: 1, Open: 1}
+	sessionID := "xr-20260312-verify123"
+
+	result := buildAgentInstructions(findings, summary, sessionID)
+
+	assertContains(t, result, "VERIFY FINDINGS")
+	assertContains(t, result, "USE the Read tool")
+	assertContains(t, result, "QUOTE the relevant code lines")
+	assertContains(t, result, "SHOW YOUR WORK")
+	assertContains(t, result, "CONFIRMED")
+	assertContains(t, result, "SUSPECT")
+	assertContains(t, result, "blind proxy")
+	assertContains(t, result, "xreview review --session")
+	assertContains(t, result, sessionID)
 }
 
 func assertNotContains(t *testing.T, s, substr string) {

@@ -7,7 +7,7 @@ description: >
   them yourself. This skill delegates review to Codex (a separate AI reviewer) via the
   xreview CLI, enabling multi-round three-party review (Codex reviews, Claude Code fixes,
   user decides). Manages the full lifecycle: discover, fix, verify, report.
-allowed-tools: Bash(xreview *), Bash(go install *), Bash(which *), AskUserQuestion, Read
+allowed-tools: Bash(xreview *), Bash(go install *), Bash(which *), AskUserQuestion, Read, Write, Skill
 argument-hint: [files-or-uncommitted]
 ---
 
@@ -39,30 +39,70 @@ If xreview itself is not found (`which xreview` fails):
 
 ## Step 1: Determine review targets and assemble context
 
-Based on the current task, determine which files to review:
-- If you just completed a plan with specific files changed, use --files with those paths.
-- If reviewing a whole directory, pass the directory path to --files (xreview expands it).
-- If unsure which files changed, use --git-uncommitted.
+Two review modes — pick the one that fits:
 
-Assemble a structured --context string describing the change:
+### Mode A: Review uncommitted changes (`--git-uncommitted`)
+Use when reviewing what's about to be committed. Codex will run `git diff`
+to see the changes itself.
 
+### Mode B: Review specific files (`--files`)
+Use when:
+- Reviewing a single file's quality (not tied to a git change)
+- Reviewing a flow/feature that spans multiple files
+- The user specifies which files to look at
+- You just completed a plan with specific files changed
+
+Codex will read the files directly — no git diff involved.
+
+### Assembling `--context`
+
+The context string is critical — it tells Codex **what to focus on** and provides
+background for the final review report. Include as much relevant context as you have.
+
+For **git-uncommitted** (change-focused):
 ```
+--context "【背景】why this change is being made — the motivation or problem being solved
 【變更類型】feature | refactor | bugfix
-【描述】簡述做了什麼
-【預期行為】這段 code 應該達成什麼效果（refactor 則寫「行為應與修改前一致」）
+【描述】what was changed — specific functions, modules, or behaviors modified
+【進度】current status — e.g. 'implementation complete, pre-commit review' or 'WIP, reviewing direction'
+【預期行為】what this code should achieve (for refactor: 'behavior should be identical to before')
+【未完成】anything not yet done or known limitations, if applicable"
 ```
+
+For **files** (flow/feature review):
+```
+--context "【背景】why this review is needed — e.g. 'new feature ready for review', 'investigating production bug'
+【Review 焦點】what to focus on — e.g. 'Review the CMS push event flow:
+enqueue → EventQueue.push() → purge logic → SendQueue routing.
+Focus on concurrency safety and lock correctness across these files.'
+【進度】current status of the work
+【預期行為】expected behavior — e.g. 'cache and ordered paths are fully independent, no cross-locking'"
+```
+
+For **files** (single file quality):
+```
+--context "【背景】why reviewing this file — e.g. 'recently refactored, want quality check'
+【Review 焦點】General quality review of event_queue.cpp.
+Look for bugs, race conditions, error handling issues.
+【進度】current status"
+```
+
+The better the context, the better Codex's review AND the better the final report.
+Be specific about the flow direction, expected behavior, and areas of concern.
+Include background motivation — this gets stored in the session and used when
+generating the review report.
 
 ## Step 2: Run review
 
 Run: `xreview review --files <paths> --context "<structured context>"`
  or: `xreview review --git-uncommitted --context "<structured context>"`
 
-## Step 2.5: Fix Plan Gate (MANDATORY)
+## Step 2.5: Verify + Fix Plan Gate (MANDATORY)
 
 <CRITICAL>
-- You MUST present ALL findings as a fix plan and get user approval BEFORE touching any code.
-- Every finding MUST include: trigger, cascade impact, and ALL fix alternatives from the XML.
-  Do NOT summarize to a single recommendation — the user needs options to decide.
+- You MUST independently verify EVERY finding before presenting to the user.
+- Do NOT blindly copy Codex output. You are a capable code reviewer — USE your judgement.
+- After verification, present only CONFIRMED findings as a fix plan.
 - You MUST end the fix plan with AskUserQuestion. No exceptions.
 - The xreview output includes `<agent-instructions>` after `</xreview-result>`. Follow them.
 </CRITICAL>
@@ -71,25 +111,48 @@ Parse the XML output from Step 2.
 
 If verdict is APPROVED (zero findings): tell the user "No issues found." Skip to Step 5.
 
-### Build the Fix Plan
+### Phase 1: Verify Each Finding
 
-For EACH finding, present these fields (all available in the XML output):
+For EACH finding in the XML output:
+
+1. **Read the actual code** at the file:line referenced by the finding.
+2. **Analyze validity** — does the issue actually exist?
+   - For concurrency/lock findings: check lock scope (nested vs sequential locking),
+     whether locks are actually held simultaneously, real contention scenarios.
+   - For logic findings: trace the actual code path end-to-end.
+   - For security findings: confirm untrusted input actually reaches the vulnerable code.
+3. **Classify**:
+   - **CONFIRMED**: the issue is real, you verified it in the code.
+   - **SUSPECT**: you believe it may be a false positive.
+
+For SUSPECT findings, challenge Codex before dropping them:
+
+Run: `xreview review --session <session-id> --message "F-XXX appears to be a false positive: <your reasoning>. Please re-evaluate."`
+
+Parse the response:
+- If Codex agrees → drop the finding (don't present to user)
+- If Codex provides valid counter-reasoning → mark as CONFIRMED
+- If disagreement persists → present both perspectives to user with a note
+
+### Phase 2: Build the Fix Plan (confirmed findings only)
+
+For EACH confirmed finding, present:
 
 1. **Header**: `### F-XXX: title (category/severity)` + `📍 file:line`
-2. **Trigger**: the `<trigger>` content — copy it, don't rephrase or omit
+2. **Trigger**: the trigger condition — verified by your own code reading
 3. **Impact**: what happens if exploited/triggered
-4. **Cascade**: list every `<impact>` from `<cascade-impact>` — what else breaks if this is fixed
-5. **Fix options**: ALL `<alternative>` entries from `<fix-alternatives>`, mark which is recommended.
+4. **Cascade**: list every cascade impact — what else breaks
+5. **Fix options**: ALL alternatives, mark which is recommended.
    Always add a final option: "Don't fix — risk: _consequence_"
 
 Low severity findings may use a shorter format but MUST still include fix options.
 
 ### Get User Approval
 
-After listing ALL findings, use AskUserQuestion:
+After listing ALL confirmed findings, use AskUserQuestion:
 
 ```
-Fix plan for N findings above. How to proceed?
+Fix plan for N confirmed findings (M suspect findings dropped after Codex discussion). How to proceed?
   A. Execute all recommended fixes
   B. Only fix high severity, skip the rest
   C. I want to adjust (tell me which findings to change — e.g. "F-003 skip, F-005 use option B")
@@ -140,13 +203,17 @@ Parse the result:
 
 ## Step 5: Finalize
 
-Run: `xreview report --session <session-id>`
+<CRITICAL>
+You MUST invoke the write-report skill here. Do NOT manually run `xreview report`
+or generate the summary yourself. The write-report skill produces a human-readable
+markdown report that is far more useful than a raw table.
+</CRITICAL>
 
-Tell the user: "Review complete. Report saved to {report-path}."
-Provide a brief summary of the final finding statuses.
+Call the Skill tool:
+- skill: `write-report`
+- args: `<session-id>`
 
-Ask the user (AskUserQuestion): "Clean up the review session? (y/n)"
-If yes: run `xreview clean --session <session-id>` to remove session data.
+Stop here. The write-report skill handles report generation, saving, and session cleanup.
 
 ## Important notes
 

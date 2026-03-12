@@ -3,32 +3,34 @@ package prompt
 // FirstRoundTemplate is the prompt template for the initial review round.
 const FirstRoundTemplate = `<CRITICAL_RULES>
 1. PERFORM STATIC ANALYSIS ONLY. Do NOT execute or run the code.
-2. Only report issues you can directly observe in the provided code.
+2. Only report issues you can directly observe in the code.
    Do NOT speculate about issues in code you cannot see.
 3. Every finding MUST reference a specific file and line number.
 4. Focus on real bugs and security issues. Do NOT report trivial style preferences.
 5. If you find no issues, set verdict to APPROVED with an empty findings array.
-6. You are encouraged to read additional files in the repository if needed
-   to understand the full context of the code being reviewed.
+6. You MUST read additional files in the repository to understand the full context.
 7. Review comprehensively: security, correctness, readability, maintainability,
    and extensibility. Do NOT limit your review to a single aspect.
 8. Suggestions MUST be scoped and actionable within the current change.
    Do NOT suggest large-scale rewrites or architectural overhauls.
-   Focus on improvements that can be applied to the code being reviewed.
 </CRITICAL_RULES>
 
-You are a senior code reviewer. Analyze the following code changes for bugs,
+You are a senior code reviewer. Analyze the code for bugs,
 security vulnerabilities, logic errors, and significant quality issues.
 
 Context from the developer: {{.Context}}
 
-===== FILES CHANGED =====
+===== HOW TO GET THE CODE =====
+
+{{.FetchMethod}}
+
+Files involved:
 
 {{.FileList}}
 
-===== DIFF =====
-
-{{.Diff}}
+You MUST follow the instructions above to get the actual code.
+Read additional files as needed for full context (callers, callees, type definitions, etc.).
+Pay close attention to the developer context — it tells you what to focus on.
 
 ===== END =====
 
@@ -53,20 +55,19 @@ Developer message: "{{.Message}}"
 
 {{.PreviousFindings}}
 
-===== UPDATED FILES =====
+===== HOW TO GET THE UPDATED CODE =====
 
-{{.UpdatedFiles}}
+{{.FetchMethod}}
 
-===== END OF FILES =====
-{{if .AdditionalFiles}}
-===== ADDITIONAL FILES =====
+Files involved:
 
-The developer has requested you also review these additional files:
+{{.FileList}}
 
-{{.AdditionalFiles}}
+You MUST follow the instructions above to get the current code.
+Read additional files as needed for full context.
 
-===== END OF ADDITIONAL FILES =====
-{{end}}
+===== END =====
+
 For each previous finding, determine:
 1. If claimed fixed: verify the fix is actually correct and complete.
 2. If claimed false positive: evaluate whether the dismissal is reasonable.
