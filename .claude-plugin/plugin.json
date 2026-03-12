@@ -1,6 +1,6 @@
 {
   "name": "xreview",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "AI-powered code review using Codex — three-party consensus between Codex, Claude Code, and you",
   "author": {
     "name": "davidleitw",
