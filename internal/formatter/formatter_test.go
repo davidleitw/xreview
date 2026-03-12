@@ -373,6 +373,42 @@ func TestBuildAgentInstructions_ContainsVerificationStep(t *testing.T) {
 	assertContains(t, result, sessionID)
 }
 
+func TestBuildAgentInstructions_GroupByFile(t *testing.T) {
+	findings := []session.Finding{
+		{
+			ID: "F001", Severity: "high", Category: "security", Status: "open",
+			File: "db.go", Line: 19, Description: "SQL injection",
+		},
+		{
+			ID: "F002", Severity: "medium", Category: "logic", Status: "open",
+			File: "db.go", Line: 45, Description: "missing error check",
+		},
+	}
+	summary := session.FindingSummary{Total: 2, Open: 2}
+
+	result := buildAgentInstructions(findings, summary, "xr-test")
+
+	assertContains(t, result, "Group findings by file")
+	assertContains(t, result, "Read each file ONCE")
+	assertNotContains(t, result, "REQUIRED ACTIONS for EACH finding")
+}
+
+func TestBuildAgentInstructions_StreamlinedAskUser(t *testing.T) {
+	findings := []session.Finding{
+		{
+			ID: "F001", Severity: "high", Category: "security", Status: "open",
+			File: "db.go", Line: 19, Description: "SQL injection",
+		},
+	}
+	summary := session.FindingSummary{Total: 1, Open: 1}
+
+	result := buildAgentInstructions(findings, summary, "xr-test")
+
+	assertContains(t, result, "Press Enter to execute all recommended fixes")
+	assertContains(t, result, "Fix plan ready: 1 confirmed finding(s)")
+	assertNotContains(t, result, "B. Only fix high severity")
+}
+
 func assertNotContains(t *testing.T, s, substr string) {
 	t.Helper()
 	if strings.Contains(s, substr) {
