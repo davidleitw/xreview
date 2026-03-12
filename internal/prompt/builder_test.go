@@ -282,6 +282,72 @@ func TestFormatFindingsForPrompt_EnrichedFields(t *testing.T) {
 	assertContains(t, result, "Fix A (recommended): Parameterized query [minimal]")
 }
 
+func TestBuildResume_ContainsScopedVerification(t *testing.T) {
+	b, err := NewBuilder()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	input := ResumeInput{
+		Message:          "Fixed F001",
+		PreviousFindings: "[F001] (high/security) main.go:42",
+		FetchMethod:      "git diff HEAD~1..HEAD",
+		FileList:         "main.go (10 lines)",
+	}
+
+	result, err := b.BuildResume(input)
+	if err != nil {
+		t.Fatalf("BuildResume failed: %v", err)
+	}
+
+	assertContains(t, result, "directly caused by")
+	assertContains(t, result, "Do NOT report pre-existing issues")
+	assertNotContains(t, result, "did any of the changes introduce NEW issues")
+}
+
+func TestBuildFirstRound_ContainsCascadeScanRule(t *testing.T) {
+	b, err := NewBuilder()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	input := FirstRoundInput{
+		Context:     "test",
+		FetchMethod: "git diff HEAD",
+		FileList:    "main.go",
+	}
+
+	result, err := b.BuildFirstRound(input)
+	if err != nil {
+		t.Fatalf("BuildFirstRound failed: %v", err)
+	}
+
+	assertContains(t, result, "same pattern exists in other functions")
+	assertContains(t, result, "Report ALL instances")
+}
+
+func TestBuildFirstRound_ContainsTODOExclusionRule(t *testing.T) {
+	b, err := NewBuilder()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	input := FirstRoundInput{
+		Context:     "test",
+		FetchMethod: "git diff HEAD",
+		FileList:    "main.go",
+	}
+
+	result, err := b.BuildFirstRound(input)
+	if err != nil {
+		t.Fatalf("BuildFirstRound failed: %v", err)
+	}
+
+	assertContains(t, result, "TODO")
+	assertContains(t, result, "BUG")
+	assertContains(t, result, "FIXME")
+}
+
 func assertContains(t *testing.T, s, substr string) {
 	t.Helper()
 	if !strings.Contains(s, substr) {
