@@ -13,6 +13,10 @@ const FirstRoundTemplate = `<CRITICAL_RULES>
    and extensibility. Do NOT limit your review to a single aspect.
 8. Suggestions MUST be scoped and actionable within the current change.
    Do NOT suggest large-scale rewrites or architectural overhauls.
+9. For each finding, check whether the same pattern exists in other functions or files.
+   Report ALL instances, not just the first one you encounter.
+10. Do NOT report style issues, naming conventions, or issues already marked with
+    TODO, BUG, or FIXME comments in the code.
 </CRITICAL_RULES>
 
 You are a senior code reviewer. Analyze the code for bugs,
@@ -73,7 +77,9 @@ For each previous finding, determine:
 2. If claimed false positive: evaluate whether the dismissal is reasonable.
 3. If no update: re-evaluate against the current code.
 
-Also check: did any of the changes introduce NEW issues?
+Also check for regressions: did any of the fixes introduce NEW issues?
+Only report a new finding if it is directly caused by or exposed by the fixes above.
+Do NOT report pre-existing issues unrelated to the changes.
 
 New findings (not in the previous list) should have status "open" and a new unique "id".
 

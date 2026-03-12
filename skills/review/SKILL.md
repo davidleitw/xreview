@@ -113,9 +113,11 @@ If verdict is APPROVED (zero findings): tell the user "No issues found." Skip to
 
 ### Phase 1: Verify Each Finding
 
-For EACH finding in the XML output:
+Group findings by file. For each file, read it ONCE, then verify all findings in that file.
 
-1. **Read the actual code** at the file:line referenced by the finding.
+For EACH finding:
+
+1. **Read the actual code** at the file:line (reuse the file content if already read for another finding in the same file).
 2. **Analyze validity** — does the issue actually exist?
    - For concurrency/lock findings: check lock scope (nested vs sequential locking),
      whether locks are actually held simultaneously, real contention scenarios.
@@ -152,10 +154,10 @@ Low severity findings may use a shorter format but MUST still include fix option
 After listing ALL confirmed findings, use AskUserQuestion:
 
 ```
-Fix plan for N confirmed findings (M suspect findings dropped after Codex discussion). How to proceed?
-  A. Execute all recommended fixes
-  B. Only fix high severity, skip the rest
-  C. I want to adjust (tell me which findings to change — e.g. "F-003 skip, F-005 use option B")
+Fix plan for N confirmed findings (M suspect findings dropped after Codex discussion).
+Press Enter to execute all recommended fixes, or:
+  S. Skip — don't fix anything right now
+  [F-XXX,...] — list finding IDs to adjust (e.g. "F-003 skip, F-005 use option B")
 ```
 
 Do NOT proceed until user responds.
@@ -195,6 +197,8 @@ The message MUST include:
   1. Whether fixes introduced new security/logic issues
   2. Unhandled cascade impact between fixes
   3. Cross-layer consistency (if DB layer changed, are cache/handler layers in sync)"
+- Scope restriction: "Only report NEW findings that are directly caused by or exposed by the fixes.
+  Do NOT report pre-existing issues unrelated to the changes."
 
 Parse the result:
 - All resolved → proceed to Step 5.
