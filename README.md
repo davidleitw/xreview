@@ -6,6 +6,8 @@ xreview delegates code review to Codex (a separate AI model) so your coding agen
 
 **[中文版 README](docs/README.zh-TW.md)**
 
+Curious why this exists? I wrote a post about the motivation and how it works: [Why I built xreview](https://davidleitw.github.io/posts/xreview-en)
+
 ## How It Works
 
 When you ask your coding agent to review your code, the xreview skill takes over:

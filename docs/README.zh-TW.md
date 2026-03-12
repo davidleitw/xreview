@@ -6,6 +6,8 @@ xreview 把程式碼審查委託給 Codex（另一個 AI 模型），讓你的 c
 
 **[English README](../README.md)**
 
+想知道為什麼要做這個工具？我寫了一篇文章聊整個動機和思路：[為什麼我做了 xreview](https://davidleitw.github.io/posts/xreview)
+
 ## 運作方式
 
 當你請你的 coding agent 審查程式碼時，xreview skill 會自動接手：
