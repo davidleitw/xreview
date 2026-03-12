@@ -11,13 +11,15 @@ xreview 把程式碼審查委託給 Codex（另一個 AI 模型），讓 Claude 
 當你請 Claude Code 審查程式碼時，xreview skill 會自動接手：
 
 1. **Codex 審查**你的程式碼，回報發現的問題（bug、安全漏洞、邏輯錯誤）
-2. **Claude Code 呈現**修復計畫 — 每個問題的觸發條件、影響、連鎖影響和修復方案
-3. **你來決定** — 全部按推薦修、只修高嚴重度、或逐條調整
-4. **Claude Code 修正**嚴格按你批准的計畫執行
-5. **Codex 驗證**修正結果，可能發現新問題或重新開啟被駁回的項目
-6. **重複**直到三方達成共識（最多 5 輪）
+2. **Claude Code 獨立驗證**每個問題 — 實際讀取原始碼，確認或挑戰可能的誤報，透過與 Codex 討論來過濾 false positive
+3. **Claude Code 呈現**修復計畫（僅包含已驗證的問題）— 觸發條件、影響、連鎖影響和修復方案
+4. **你來決定** — 全部按推薦修、只修高嚴重度、或逐條調整
+5. **Claude Code 修正**嚴格按你批准的計畫執行
+6. **Codex 驗證**修正結果，可能發現新問題或重新開啟被駁回的項目
+7. **重複**直到三方達成共識（最多 5 輪）
+8. **產生報告** — 人類可讀的 markdown 報告，總結問題、決策和修復內容
 
-這不是 Claude Code 自己審查自己的程式碼，而是由不同模型提供真正獨立的審查。
+這不是 Claude Code 自己審查自己的程式碼，而是由不同模型提供真正獨立的審查，Claude Code 作為驗證層過濾誤報後再呈現給你。
 
 ## 安裝
 
@@ -126,21 +128,36 @@ Claude Code (host)          xreview (CLI)           Codex (reviewer)
      |                          |                        |
      |-- /xreview skill ------->|                        |
      |                          |-- codex exec --------->|
+     |                          |   (Codex 自行讀取程式碼  |
+     |                          |    透過 git diff/檔案)   |
      |                          |<-- findings (JSON) ----|
      |<-- findings (XML) ------|                        |
      |                          |                        |
+     |  [逐一驗證每個問題]        |                        |
+     |  [挑戰可疑項目] --------->|-- codex resume ------->|
+     |                          |<-- 重新評估 ------------|
+     |                          |                        |
+     |  [呈現修復計畫]            |                        |
+     |  [使用者批准]              |                        |
      |  [修正程式碼]              |                        |
      |                          |                        |
      |-- resume --------------->|                        |
      |                          |-- codex resume ------->|
      |                          |<-- verify (JSON) ------|
      |<-- verify (XML) --------|                        |
+     |                          |                        |
+     |  [write-report skill]    |                        |
+     |-- report --------------->|                        |
+     |<-- session 資料 ---------|                        |
+     |  [產生 markdown 報告]     |                        |
 ```
 
 - xreview 在 stdout 輸出 XML 供 Claude Code skill 消費
+- Codex 自行取得程式碼（以唯讀模式執行 `git diff` 或讀取檔案）
+- Claude Code 獨立驗證每個問題後才呈現給使用者
 - 內部狀態以 JSON 儲存在 `.xreview/sessions/`
-- 透過 `codex exec` 搭配 `--output-schema` 取得結構化 JSON 回應
 - 多輪審查：透過 `--resume <session-id>` 恢復 codex session
+- 人類可讀的 markdown 報告由 write-report skill 產生
 
 ## 未來方向
 
