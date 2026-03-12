@@ -103,6 +103,5 @@ Review complete. Report saved to .xreview/reports/<session-id>.md
 Summary: N findings — X fixed, Y dismissed, Z open.
 ```
 
-3. **Ask about cleanup** (AskUserQuestion):
-   "Clean up the review session data? (y/n)"
-   If yes: run `xreview clean --session <session-id>`
+3. **Clean up session** — run `xreview clean --session <session-id>`.
+   The session data is no longer needed after the report is saved.
