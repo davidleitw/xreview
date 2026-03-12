@@ -7,7 +7,7 @@ description: >
   them yourself. This skill delegates review to Codex (a separate AI reviewer) via the
   xreview CLI, enabling multi-round three-party review (Codex reviews, Claude Code fixes,
   user decides). Manages the full lifecycle: discover, fix, verify, report.
-allowed-tools: Bash(xreview *), Bash(go install *), Bash(which *), AskUserQuestion, Read, Write, Skill
+allowed-tools: Bash(xreview *), Bash(curl *), Bash(which *), AskUserQuestion, Read, Write, Skill
 argument-hint: [files-or-uncommitted]
 ---
 
@@ -32,10 +32,10 @@ Parse the XML output:
   Relay it in natural language and suggest how to fix it. Stop.
 
 If xreview itself is not found (`which xreview` fails):
-  a. Check if Go is available: `which go`
-  b. If yes: ask the user "xreview is not installed. Install it now? (y/n)"
-     If yes: run `go install github.com/davidleitw/xreview@latest`, then re-run preflight.
-  c. If no Go: tell the user to install Go or download the binary. Stop.
+  a. Ask the user "xreview is not installed. Install it now? (y/n)"
+  b. If yes: run `curl -fsSL https://raw.githubusercontent.com/davidleitw/xreview/master/scripts/install.sh | bash`
+     then re-run preflight.
+  c. If install fails: tell the user to check https://github.com/davidleitw/xreview/releases. Stop.
 
 ## Step 1: Determine review targets and assemble context
 
