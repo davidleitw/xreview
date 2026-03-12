@@ -113,13 +113,21 @@ xreview 是一個獨立的 Go binary，Claude Code 在背後呼叫它：
 | `xreview self-update` | 從 GitHub Releases 更新到最新版本 |
 | `xreview version` | 顯示版本 |
 
-## 從源碼建構
+## 開發
 
 ```bash
 git clone https://github.com/davidleitw/xreview.git
 cd xreview
 go build -o xreview ./cmd/xreview/
 ```
+
+在 Claude Code 中載入本地 plugin（不需要從 marketplace 安裝）：
+
+```bash
+claude --plugin-dir .
+```
+
+這會透過 `.claude-plugin/plugin.json` 載入 `skills/` 目錄的 skill。編輯 skill 檔案後，在 session 中執行 `/reload-plugins` 即可熱載入。
 
 ## 架構
 

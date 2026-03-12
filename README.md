@@ -113,13 +113,21 @@ xreview ships as a standalone Go binary that Claude Code calls under the hood:
 | `xreview self-update` | Update to the latest version from GitHub Releases |
 | `xreview version` | Show version |
 
-## Building from Source
+## Development
 
 ```bash
 git clone https://github.com/davidleitw/xreview.git
 cd xreview
 go build -o xreview ./cmd/xreview/
 ```
+
+To load the plugin locally in Claude Code (without installing from marketplace):
+
+```bash
+claude --plugin-dir .
+```
+
+This loads `skills/` from the repo root via `.claude-plugin/plugin.json`. Use `/reload-plugins` inside the session to hot-reload after editing skill files.
 
 ## Architecture
 
