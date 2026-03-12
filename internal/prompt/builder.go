@@ -10,17 +10,17 @@ import (
 
 // FirstRoundInput holds the data for building a first-round prompt.
 type FirstRoundInput struct {
-	Context  string
-	FileList string
-	Diff     string
+	Context     string
+	FetchMethod string // git command or file list instruction for Codex to run
+	FileList    string // summary of files (names + line counts)
 }
 
 // ResumeInput holds the data for building a resume-round prompt.
 type ResumeInput struct {
 	Message          string
 	PreviousFindings string
-	UpdatedFiles     string
-	AdditionalFiles  string // optional: extra files added via --files on resume
+	FetchMethod      string // git command for Codex to re-read files
+	FileList         string // summary of files involved
 }
 
 // Builder assembles prompts for codex.

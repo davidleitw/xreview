@@ -51,18 +51,17 @@ func (r *SingleReviewer) Review(ctx context.Context, req ReviewRequest) (*Review
 		return nil, fmt.Errorf("create session: %w", err)
 	}
 
-	// 2. Collect files
+	// 2. Collect file metadata (for file list summary only)
 	files, err := r.collector.Collect(ctx, req.Targets, req.TargetMode)
 	if err != nil {
 		return nil, err
 	}
 
-	// 3. Build prompt
-	fileList, diff := formatFilesForPrompt(files)
+	// 3. Build prompt (instruction-only, no file content)
 	promptStr, err := r.builder.BuildFirstRound(prompt.FirstRoundInput{
-		Context:  req.Context,
-		FileList: fileList,
-		Diff:     diff,
+		Context:     req.Context,
+		FetchMethod: buildFetchMethod(req.Targets, req.TargetMode),
+		FileList:    buildFileListSummary(files),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("build prompt: %w", err)
@@ -123,29 +122,18 @@ func (r *SingleReviewer) Verify(ctx context.Context, req VerifyRequest) (*Verify
 		return nil, fmt.Errorf("load session: %w", err)
 	}
 
-	// 2. Collect files from original session targets
+	// 2. Collect file metadata for summary
 	files, err := r.collector.Collect(ctx, sess.Targets, sess.TargetMode)
 	if err != nil {
 		return nil, err
 	}
 
-	// 3. Collect extra files if provided
-	var additionalContent string
-	if len(req.ExtraTargets) > 0 || req.ExtraTargetMode == "git-uncommitted" {
-		extraFiles, err := r.collector.Collect(ctx, req.ExtraTargets, req.ExtraTargetMode)
-		if err != nil {
-			return nil, err
-		}
-		_, additionalContent = formatFilesForPrompt(extraFiles)
-	}
-
-	// 4. Build resume prompt
-	_, updatedFiles := formatFilesForPrompt(files)
+	// 3. Build resume prompt (instruction-only, Codex reads files itself)
 	promptStr, err := r.builder.BuildResume(prompt.ResumeInput{
 		Message:          req.Message,
 		PreviousFindings: r.builder.FormatFindingsForPrompt(sess.Findings),
-		UpdatedFiles:     updatedFiles,
-		AdditionalFiles:  additionalContent,
+		FetchMethod:      buildFetchMethod(sess.Targets, sess.TargetMode),
+		FileList:         buildFileListSummary(files),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("build resume prompt: %w", err)
@@ -207,14 +195,40 @@ func (r *SingleReviewer) Verify(ctx context.Context, req VerifyRequest) (*Verify
 	}, nil
 }
 
-// formatFilesForPrompt creates a file list and combined content from collected files.
-func formatFilesForPrompt(files []collector.FileContent) (fileList string, content string) {
-	var listBuf, contentBuf strings.Builder
-	for _, f := range files {
-		fmt.Fprintf(&listBuf, "%s (%d lines)\n", f.Path, f.Lines)
-		fmt.Fprintf(&contentBuf, "--- %s ---\n%s\n", f.Path, f.Content)
+// buildFetchMethod constructs the instruction for Codex to get the code to review.
+// Two distinct modes:
+//   - "git-uncommitted": Codex runs git diff commands to see uncommitted changes
+//   - "files": Codex reads the specified files directly (no git involved —
+//     supports use cases like reviewing a single file's quality or tracing
+//     a flow across multiple files described by --context)
+func buildFetchMethod(targets []string, targetMode string) string {
+	switch targetMode {
+	case "git-uncommitted":
+		return "Run these commands to see the uncommitted changes:\n" +
+			"  git diff          # unstaged changes\n" +
+			"  git diff --cached # staged changes\n" +
+			"  git ls-files --others --exclude-standard  # untracked files (read their content too)"
+	case "files":
+		var b strings.Builder
+		b.WriteString("Read the following files in full and review them:\n")
+		for _, t := range targets {
+			fmt.Fprintf(&b, "  - %s\n", t)
+		}
+		b.WriteString("\nThese are NOT necessarily git changes — you are reviewing the files themselves.\n")
+		b.WriteString("Use the developer's --context description to understand what to focus on.")
+		return b.String()
+	default:
+		return "git diff HEAD"
 	}
-	return listBuf.String(), contentBuf.String()
+}
+
+// buildFileListSummary creates a brief summary of file names for the prompt.
+func buildFileListSummary(files []collector.FileContent) string {
+	var b strings.Builder
+	for _, f := range files {
+		fmt.Fprintf(&b, "%s (%d lines)\n", f.Path, f.Lines)
+	}
+	return b.String()
 }
 
 // codexFindingsToFindings converts codex findings to session findings.

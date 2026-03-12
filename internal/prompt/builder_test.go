@@ -24,9 +24,9 @@ func TestBuildFirstRound(t *testing.T) {
 	}
 
 	input := FirstRoundInput{
-		Context:  "【變更類型】feature【描述】add user auth",
-		FileList: "auth.go\nhandler.go",
-		Diff:     "+func Login() {}",
+		Context:     "【變更類型】feature【描述】add user auth",
+		FetchMethod: "git diff HEAD~1..HEAD -- auth.go handler.go",
+		FileList:    "auth.go\nhandler.go",
 	}
 
 	result, err := b.BuildFirstRound(input)
@@ -37,8 +37,32 @@ func TestBuildFirstRound(t *testing.T) {
 	assertContains(t, result, "CRITICAL_RULES")
 	assertContains(t, result, "add user auth")
 	assertContains(t, result, "auth.go")
-	assertContains(t, result, "+func Login() {}")
+	assertContains(t, result, "git diff HEAD~1..HEAD")
 	assertContains(t, result, "senior code reviewer")
+}
+
+func TestBuildFirstRound_InstructionOnly(t *testing.T) {
+	b, err := NewBuilder()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	input := FirstRoundInput{
+		Context:     "【變更類型】feature【描述】add auth",
+		FetchMethod: "git diff HEAD~3..HEAD",
+		FileList:    "auth.go (45 lines)\nhandler.go (120 lines)",
+	}
+
+	result, err := b.BuildFirstRound(input)
+	if err != nil {
+		t.Fatalf("BuildFirstRound failed: %v", err)
+	}
+
+	assertContains(t, result, "git diff HEAD~3..HEAD")
+	assertContains(t, result, "auth.go (45 lines)")
+	assertNotContains(t, result, "===== DIFF =====")
+	assertContains(t, result, "CRITICAL_RULES")
+	assertContains(t, result, "trigger")
 }
 
 func TestBuildResume(t *testing.T) {
@@ -50,7 +74,8 @@ func TestBuildResume(t *testing.T) {
 	input := ResumeInput{
 		Message:          "Fixed F001, dismissed F002 because it's a false positive",
 		PreviousFindings: "[F001] (high/security) main.go:42 — SQL injection",
-		UpdatedFiles:     "package main\n// fixed",
+		FetchMethod:      "git diff HEAD~1..HEAD -- main.go",
+		FileList:         "main.go (10 lines)",
 	}
 
 	result, err := b.BuildResume(input)
@@ -61,7 +86,32 @@ func TestBuildResume(t *testing.T) {
 	assertContains(t, result, "follow-up review")
 	assertContains(t, result, "Fixed F001")
 	assertContains(t, result, "SQL injection")
-	assertContains(t, result, "// fixed")
+	assertContains(t, result, "git diff HEAD~1..HEAD -- main.go")
+	assertNotContains(t, result, "===== UPDATED FILES =====")
+}
+
+func TestBuildResume_InstructionOnly(t *testing.T) {
+	b, err := NewBuilder()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	input := ResumeInput{
+		Message:          "Fixed F001 with parameterized query",
+		PreviousFindings: "[F001] (high/security) db.go:19 — SQL injection [status: open]",
+		FetchMethod:      "git diff HEAD~1..HEAD -- db.go",
+		FileList:         "db.go (25 lines)",
+	}
+
+	result, err := b.BuildResume(input)
+	if err != nil {
+		t.Fatalf("BuildResume failed: %v", err)
+	}
+
+	assertContains(t, result, "git diff HEAD~1..HEAD -- db.go")
+	assertContains(t, result, "Fixed F001")
+	assertContains(t, result, "SQL injection")
+	assertNotContains(t, result, "===== UPDATED FILES =====")
 }
 
 func TestFormatFindingsForPrompt_Empty(t *testing.T) {
@@ -143,7 +193,8 @@ func TestBuildResume_ContainsJSONInstruction(t *testing.T) {
 	input := ResumeInput{
 		Message:          "Fixed F001",
 		PreviousFindings: "[F001] (high/security) main.go:42",
-		UpdatedFiles:     "package main",
+		FetchMethod:      "git diff HEAD~1..HEAD",
+		FileList:         "main.go (10 lines)",
 	}
 
 	result, err := b.BuildResume(input)
@@ -156,49 +207,6 @@ func TestBuildResume_ContainsJSONInstruction(t *testing.T) {
 	assertContains(t, result, "JSON")
 }
 
-func TestBuildResume_WithAdditionalFiles(t *testing.T) {
-	b, err := NewBuilder()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	input := ResumeInput{
-		Message:          "Fixed F001, also review tests",
-		PreviousFindings: "[F001] (high/security) main.go:42",
-		UpdatedFiles:     "package main",
-		AdditionalFiles:  "--- test_main.go ---\npackage main_test",
-	}
-
-	result, err := b.BuildResume(input)
-	if err != nil {
-		t.Fatalf("BuildResume failed: %v", err)
-	}
-
-	assertContains(t, result, "ADDITIONAL FILES")
-	assertContains(t, result, "test_main.go")
-}
-
-func TestBuildResume_NoAdditionalFiles(t *testing.T) {
-	b, err := NewBuilder()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	input := ResumeInput{
-		Message:          "Fixed F001",
-		PreviousFindings: "[F001]",
-		UpdatedFiles:     "package main",
-		AdditionalFiles:  "",
-	}
-
-	result, err := b.BuildResume(input)
-	if err != nil {
-		t.Fatalf("BuildResume failed: %v", err)
-	}
-
-	assertNotContains(t, result, "ADDITIONAL FILES")
-}
-
 func TestBuildFirstRound_ContainsEnrichedFieldGuidance(t *testing.T) {
 	b, err := NewBuilder()
 	if err != nil {
@@ -206,9 +214,9 @@ func TestBuildFirstRound_ContainsEnrichedFieldGuidance(t *testing.T) {
 	}
 
 	input := FirstRoundInput{
-		Context:  "test",
-		FileList: "main.go",
-		Diff:     "+line",
+		Context:     "test",
+		FetchMethod: "git diff HEAD",
+		FileList:    "main.go",
 	}
 
 	result, err := b.BuildFirstRound(input)
@@ -231,7 +239,8 @@ func TestBuildResume_ContainsEnrichedFields(t *testing.T) {
 	input := ResumeInput{
 		Message:          "Fixed F001",
 		PreviousFindings: "[F001] (high/security) main.go:42",
-		UpdatedFiles:     "package main",
+		FetchMethod:      "git diff HEAD~1..HEAD",
+		FileList:         "main.go (10 lines)",
 	}
 
 	result, err := b.BuildResume(input)
