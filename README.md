@@ -175,10 +175,12 @@ Claude Code (host)          xreview (CLI)           Codex (reviewer)
 
 ## Future Work
 
-- **Second opinion** — run the same code through a second independent reviewer (different model or different prompt focus) and aggregate findings. Each reviewer gets its own session; xreview merges and deduplicates findings before presenting to the user.
-- **Review plan** — a single-round, read-only review mode that produces a structured review plan (what to check, in what order, what patterns to look for) without actually performing the review. Useful for large codebases where you want to scope the review before committing to a full run.
-- **Language-aware review context** — detect the project's primary language and pass language-specific best practices (e.g., Go error handling patterns, Rust ownership rules, Python type safety) as additional context to Codex, so reviews are informed by the idioms and conventions of the language being reviewed.
-- **Auto-fix mode (`--auto-fix`)** — fully autonomous review-and-fix cycle for vibe coding workflows. Skips the review-only discussion phase and automatically applies recommended fixes with the three-party verify loop, requiring zero user interaction until completion.
+- **Context engineering** — structured context files and focused review angles, letting Claude Code prepare architectural context (symbol cross-references, call chains, data structure shapes) before Codex reviews. Solves the "semantic gap" where code works correctly but communicates intent poorly.
+- **Multi-angle review** — dispatch multiple parallel Codex reviews, each focused on a different concern (semantic consistency, lifecycle naming, bugs/security), then merge and deduplicate findings. Claude Code decides when multi-angle is warranted based on code complexity.
+- **Design plan review** — review implementation plans and design docs before execution, checking for feasibility issues, missing edge cases, and architectural conflicts with existing code.
+- **Multi-model review** — run the same code through independent reviewers (Codex, Gemini, local models) and cross-validate findings. Different models have different blind spots; cross-model consensus yields higher-confidence findings.
+- **Language-aware review context** — detect the project's primary language and inject language-specific review patterns (C++ aggregate init readability, Go error handling, Rust ownership) into Codex prompts.
+- **Auto-fix mode** — fully autonomous review-and-fix cycle for vibe coding workflows, requiring zero user interaction until completion.
 
 ## Uninstall
 
