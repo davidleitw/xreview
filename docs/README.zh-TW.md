@@ -174,7 +174,6 @@ Claude Code (host)          xreview (CLI)           Codex (reviewer)
 
 ## 未來方向
 
-- **檔案快照變動偵測** — 在每一輪審查結束時記錄檔案的 SHA-256 checksum。當恢復多輪審查時，xreview 偵測哪些檔案有修改，明確通知 Codex 重新讀取，確保驗證永遠是基於最新程式碼。詳見[設計文件](specs/2026-03-17-file-snapshot-diff-detection.md)。
 - **第二意見 (Second Opinion)** — 將同一份程式碼送給第二個獨立的 reviewer（不同模型或不同的 prompt 焦點），彙整發現。每個 reviewer 有自己的 session；xreview 在呈現給使用者前合併並去重。
 - **審查計畫 (Review Plan)** — 單輪、唯讀的審查模式，產出結構化的審查計畫（要檢查什麼、檢查順序、要注意哪些 pattern），而不實際執行審查。適用於大型 codebase，在投入完整 review 之前先界定範圍。
 - **語言感知的審查上下文** — 自動偵測專案主要開發語言，將該語言的 best practice（例如 Go 的 error handling 慣例、Rust 的 ownership 規則、Python 的型別安全）作為額外 context 傳給 Codex，讓審查結果更貼合該語言的慣用寫法和規範。

@@ -175,7 +175,6 @@ Claude Code (host)          xreview (CLI)           Codex (reviewer)
 
 ## Future Work
 
-- **File snapshot change detection** — track SHA-256 checksums of reviewed files between rounds. When resuming a multi-round review, xreview detects which files changed and explicitly tells Codex to re-read them, ensuring verification is always against the latest code. See [design spec](docs/specs/2026-03-17-file-snapshot-diff-detection.md).
 - **Second opinion** — run the same code through a second independent reviewer (different model or different prompt focus) and aggregate findings. Each reviewer gets its own session; xreview merges and deduplicates findings before presenting to the user.
 - **Review plan** — a single-round, read-only review mode that produces a structured review plan (what to check, in what order, what patterns to look for) without actually performing the review. Useful for large codebases where you want to scope the review before committing to a full run.
 - **Language-aware review context** — detect the project's primary language and pass language-specific best practices (e.g., Go error handling patterns, Rust ownership rules, Python type safety) as additional context to Codex, so reviews are informed by the idioms and conventions of the language being reviewed.
