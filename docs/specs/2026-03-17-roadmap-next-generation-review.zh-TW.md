@@ -18,25 +18,17 @@ xreview 的核心價值是 **跨模型 code review**：Codex 找問題、Claude 
 
 ## 問題：xreview 目前抓不到什麼
 
-### 實證：生產環境 Review 的發現
+### 能抓到什麼 vs. 抓不到什麼
 
-xreview 能有效抓到具體的 code pattern 問題——缺少錯誤處理、交易安全漏洞、schema migration 問題。但它持續漏掉一類更重要的問題：
+xreview 能有效抓到 **code pattern 問題**——在單一函數或檔案內可見的問題：缺少錯誤處理、交易安全漏洞、schema migration 問題。這些是「code vs. 正確性」的問題。
 
-| 問題類型 | 範例 | 為什麼漏掉 |
-|---|---|---|
-| **常數語義漂移** | 常數 `kMaxSizePerGroup` 在 4 處使用：3 處檢查 flat collection 大小（per-group 語義），但 1 處檢查 nested container 中的 per-element 大小（per-element 語義）。沒有整體記憶體上限。 | 需要跨檔案的 symbol 分析；單函數 review 看不到使用不一致 |
-| **誤導性的 lifecycle 命名** | `markDone()` 只釋放一個內部 lock——item 還要經過 3 個以上的處理階段才真正完成。讀者會以為 lifecycle 已結束。 | 需要追蹤跨多個檔案的完整處理 pipeline |
-| **不透明的回傳值** | `return {}` 透過 aggregate initialization 建構結果 struct。不找到 struct 定義並心算 default values 就無法理解含義。 | 需要理解可讀性影響，而非正確性 |
+但它持續漏掉 **語義落差問題（semantic gap）**——code 運作正確，但無法傳達開發者的設計意圖。這類問題需要理解 code 背後的設計：資料結構如何跨檔案關聯、函數名暗示的行為 vs. 它 return 之後實際發生的事、一個常數的命名是否在每個使用點都符合其語義角色。
 
-### 根本原因
-
-三者的共同特徵：它們需要 **理解設計意圖**，並與 code 實際表達的內容做比對。它們不是 bug——code 運作正確。它們是開發者想表達的和 code 實際傳達的之間的 **語義落差（semantic gap）**。
-
-Codex review code 的方式是分析它 **做了什麼**。這些問題是關於 code **應該傳達什麼**——根本上是不同類型的 review。
+這個差距是根本性的：Codex review code 的方式是分析它 **做了什麼**。語義落差問題是關於 code **應該傳達什麼**——完全不同類型的 review。要抓到它們，需要跨檔案的結構性理解（symbol 使用模式、call chain 追蹤、資料結構形狀感知），這是單函數分析無法提供的。
 
 ### 雞生蛋蛋生雞問題
 
-`--context` flag 理論上能幫忙——如果 reviewer 知道「這個 collection 是 map of lists，不是 flat list；這個常數應該限制總大小，不是 per-element 大小」，它可能會發現不一致。但寫出 misleading 命名或誤用常數的開發者通常 **不知道自己在這樣做**。要求他們提供能揭露問題的 context，本身就是循環論證。
+`--context` flag 理論上能幫忙——如果 reviewer 有發現語義不匹配所需的架構 context，它就能抓到。但寫出 misleading code 的開發者通常 **不知道自己在這樣做**。要求他們提供能揭露問題的 context，本身就是循環論證。
 
 ---
 

@@ -18,25 +18,17 @@ This document captures the strategic roadmap for xreview's next generation of fe
 
 ## The Problem: What xreview Can't Catch Today
 
-### Evidence: What Production Reviews Reveal
+### What We Can Catch vs. What We Can't
 
-xreview is effective at catching concrete code-pattern issues — missing error handling, transactional safety gaps, schema migration problems. But it consistently misses a class of issues that matter more:
+xreview is effective at catching **code-pattern issues** — problems visible within a single function or file: missing error handling, transactional safety gaps, schema migration problems. These are "code vs. correctness" issues.
 
-| Issue Type | Example | Why It's Missed |
-|---|---|---|
-| **Constant semantic drift** | A constant `kMaxSizePerGroup` is used in 4 places: 3 check flat-collection size (per-group semantic) but 1 checks per-element size in a nested container (per-element semantic). No overall memory bound exists. | Requires cross-file symbol analysis; single-function review can't see usage inconsistencies |
-| **Misleading lifecycle naming** | `markDone()` only releases an internal lock — the item continues through 3 more processing stages before it's actually done. Readers assume lifecycle is complete. | Requires tracing the full processing pipeline across multiple files |
-| **Opaque return values** | `return {}` constructs a result struct via aggregate initialization. The meaning is invisible without finding the struct definition and mentally constructing default values. | Requires understanding readability impact, not correctness |
+But it consistently misses **semantic gap issues** — problems where the code works correctly but fails to communicate the developer's intent. These require understanding the design behind the code: how data structures relate across files, what a function name implies vs. what actually happens after it returns, whether a constant's name matches its semantic role in every usage site.
 
-### Root Cause
-
-All three share a common trait: they require **understanding design intent** and comparing it against what the code actually communicates. They are not bugs — the code works correctly. They are **semantic gaps** between what the developer meant and what the code says to readers.
-
-Codex reviews code by analyzing what it **does**. These issues are about what the code **should communicate** — a fundamentally different kind of review.
+The gap is fundamental: Codex reviews code by analyzing what it **does**. Semantic gap issues are about what the code **should communicate** — a different kind of review entirely. Catching them requires cross-file structural understanding (symbol usage patterns, call chain tracing, data structure shape awareness) that single-function analysis cannot provide.
 
 ### The Chicken-and-Egg Problem
 
-The `--context` flag could theoretically help — if the reviewer knew "this collection is a map of lists, not a flat list; the constant should limit total size, not per-element size," it might spot the mismatch. But the developer who writes misleading names or misuses constants usually doesn't know they're doing it. Asking them to provide the context that reveals the problem is circular.
+The `--context` flag could theoretically help — if the reviewer had the architectural context needed to spot semantic mismatches, it could catch them. But the developer who writes misleading code usually doesn't know they're doing it. Asking them to provide the context that reveals the problem is circular.
 
 ---
 
