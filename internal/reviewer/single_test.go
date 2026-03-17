@@ -152,7 +152,7 @@ func TestReview_HappyPath(t *testing.T) {
 	bldr := &mockBuilder{}
 	cfg := &config.Config{CodexModel: "gpt-5.3-Codex", DefaultTimeout: 180}
 
-	r := NewSingleReviewer(runner, bldr, psr, mgr, coll, cfg)
+	r := NewSingleReviewer(runner, bldr, psr, mgr, coll, cfg, "/tmp/test-workdir")
 
 	result, err := r.Review(context.Background(), ReviewRequest{
 		Targets:    []string{"main.go"},
@@ -198,7 +198,7 @@ func TestReview_CollectorError(t *testing.T) {
 	coll := &mockCollector{err: fmt.Errorf("no files found")}
 	cfg := &config.Config{CodexModel: "gpt-5.3-Codex", DefaultTimeout: 180}
 
-	r := NewSingleReviewer(&mockRunner{}, &mockBuilder{}, &mockParser{parseFn: nil}, mgr, coll, cfg)
+	r := NewSingleReviewer(&mockRunner{}, &mockBuilder{}, &mockParser{parseFn: nil}, mgr, coll, cfg, "/tmp/test-workdir")
 
 	_, err := r.Review(context.Background(), ReviewRequest{
 		Targets:    []string{"missing.go"},
@@ -221,7 +221,7 @@ func TestReview_CodexError(t *testing.T) {
 	}
 	cfg := &config.Config{CodexModel: "gpt-5.3-Codex", DefaultTimeout: 180}
 
-	r := NewSingleReviewer(runner, &mockBuilder{}, &mockParser{parseFn: nil}, mgr, coll, cfg)
+	r := NewSingleReviewer(runner, &mockBuilder{}, &mockParser{parseFn: nil}, mgr, coll, cfg, "/tmp/test-workdir")
 
 	_, err := r.Review(context.Background(), ReviewRequest{
 		Targets:    []string{"main.go"},
@@ -276,7 +276,7 @@ func TestVerify_HappyPath(t *testing.T) {
 	}
 	cfg := &config.Config{CodexModel: "gpt-5.3-Codex", DefaultTimeout: 180}
 
-	r := NewSingleReviewer(runner, &mockBuilder{}, psr, mgr, coll, cfg)
+	r := NewSingleReviewer(runner, &mockBuilder{}, psr, mgr, coll, cfg, "/tmp/test-workdir")
 
 	result, err := r.Verify(context.Background(), VerifyRequest{
 		SessionID: "xr-test-001",
@@ -339,7 +339,7 @@ func TestVerify_FullRescan(t *testing.T) {
 	}
 	cfg := &config.Config{CodexModel: "gpt-5.3-Codex", DefaultTimeout: 180}
 
-	r := NewSingleReviewer(runner, &mockBuilder{}, psr, mgr, coll, cfg)
+	r := NewSingleReviewer(runner, &mockBuilder{}, psr, mgr, coll, cfg, "/tmp/test-workdir")
 
 	_, err := r.Verify(context.Background(), VerifyRequest{
 		SessionID:  "xr-test-001",
@@ -355,7 +355,7 @@ func TestVerify_SessionNotFound(t *testing.T) {
 	mgr := newMockManager()
 	cfg := &config.Config{CodexModel: "gpt-5.3-Codex", DefaultTimeout: 180}
 
-	r := NewSingleReviewer(&mockRunner{}, &mockBuilder{}, &mockParser{}, mgr, &mockCollector{}, cfg)
+	r := NewSingleReviewer(&mockRunner{}, &mockBuilder{}, &mockParser{}, mgr, &mockCollector{}, cfg, "/tmp/test-workdir")
 
 	_, err := r.Verify(context.Background(), VerifyRequest{
 		SessionID: "nonexistent",
@@ -575,7 +575,7 @@ func TestReview_EnrichedFieldsEndToEnd(t *testing.T) {
 	}
 	cfg := &config.Config{CodexModel: "gpt-5.3-Codex", DefaultTimeout: 180}
 
-	r := NewSingleReviewer(runner, &mockBuilder{}, psr, mgr, coll, cfg)
+	r := NewSingleReviewer(runner, &mockBuilder{}, psr, mgr, coll, cfg, "/tmp/test-workdir")
 
 	result, err := r.Review(context.Background(), ReviewRequest{
 		Targets:    []string{"db.go"},
@@ -689,7 +689,7 @@ func TestReview_NoFileContentInPrompt(t *testing.T) {
 	}
 	cfg := &config.Config{CodexModel: "gpt-5.3-Codex", DefaultTimeout: 180}
 
-	r := NewSingleReviewer(runner, bldr, psr, mgr, coll, cfg)
+	r := NewSingleReviewer(runner, bldr, psr, mgr, coll, cfg, "/tmp/test-workdir")
 
 	_, err := r.Review(context.Background(), ReviewRequest{
 		Targets:    []string{"main.go"},
@@ -743,7 +743,7 @@ func TestReview_GitUncommitted_UseGitDiff(t *testing.T) {
 	}
 	cfg := &config.Config{CodexModel: "gpt-5.3-Codex", DefaultTimeout: 180}
 
-	r := NewSingleReviewer(runner, bldr, psr, mgr, coll, cfg)
+	r := NewSingleReviewer(runner, bldr, psr, mgr, coll, cfg, "/tmp/test-workdir")
 
 	_, err := r.Review(context.Background(), ReviewRequest{
 		TargetMode: "git-uncommitted",

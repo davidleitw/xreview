@@ -23,6 +23,7 @@ type SingleReviewer struct {
 	sessions  session.Manager
 	collector collector.Collector
 	cfg       *config.Config
+	workdir   string
 }
 
 // NewSingleReviewer creates a SingleReviewer with the given dependencies.
@@ -33,6 +34,7 @@ func NewSingleReviewer(
 	sessions session.Manager,
 	collector collector.Collector,
 	cfg *config.Config,
+	workdir string,
 ) *SingleReviewer {
 	return &SingleReviewer{
 		runner:    runner,
@@ -41,6 +43,7 @@ func NewSingleReviewer(
 		sessions:  sessions,
 		collector: collector,
 		cfg:       cfg,
+		workdir:   workdir,
 	}
 }
 
@@ -101,6 +104,13 @@ func (r *SingleReviewer) Review(ctx context.Context, req ReviewRequest) (*Review
 	sess.Round = 1
 	sess.CodexSessionID = execResult.CodexSessionID
 	sess.Findings = codexFindingsToFindings(codexResp.Findings)
+
+	// 8. Snapshot file checksums for change detection in subsequent rounds
+	snapshots, snapErr := collector.Snapshot(req.Targets, req.TargetMode, r.workdir, r.cfg.IgnorePatterns)
+	if snapErr == nil {
+		sess.FileSnapshots = snapshots
+	}
+
 	if err := r.sessions.Update(sess); err != nil {
 		return nil, fmt.Errorf("update session: %w", err)
 	}
@@ -122,18 +132,29 @@ func (r *SingleReviewer) Verify(ctx context.Context, req VerifyRequest) (*Verify
 		return nil, fmt.Errorf("load session: %w", err)
 	}
 
-	// 2. Collect file metadata for summary
-	files, err := r.collector.Collect(ctx, sess.Targets, sess.TargetMode)
-	if err != nil {
-		return nil, err
+	// 2. Detect file changes since last round (before Collect, so deleted files are caught)
+	currentSnapshots, _ := collector.Snapshot(sess.Targets, sess.TargetMode, r.workdir, r.cfg.IgnorePatterns)
+	var changedFiles []prompt.FileChange
+	if len(sess.FileSnapshots) > 0 && len(currentSnapshots) > 0 {
+		diffs := collector.DiffSnapshots(sess.FileSnapshots, currentSnapshots)
+		for _, d := range diffs {
+			changedFiles = append(changedFiles, prompt.FileChange{
+				Path:   d.Path,
+				Status: d.Status,
+			})
+		}
 	}
 
-	// 3. Build resume prompt (instruction-only, Codex reads files itself)
+	// 3. Collect file metadata for summary (best-effort: files may have been deleted)
+	files, _ := r.collector.Collect(ctx, sess.Targets, sess.TargetMode)
+
+	// 4. Build resume prompt (instruction-only, Codex reads files itself)
 	promptStr, err := r.builder.BuildResume(prompt.ResumeInput{
 		Message:          req.Message,
 		PreviousFindings: r.builder.FormatFindingsForPrompt(sess.Findings),
 		FetchMethod:      buildFetchMethod(sess.Targets, sess.TargetMode),
 		FileList:         buildFileListSummary(files),
+		ChangedFiles:     changedFiles,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("build resume prompt: %w", err)
@@ -180,6 +201,11 @@ func (r *SingleReviewer) Verify(ctx context.Context, req VerifyRequest) (*Verify
 		sess.CodexSessionID = execResult.CodexSessionID
 	}
 	sess.Findings = mergeFindings(sess.Findings, codexResp.Findings)
+
+	// 9. Update file snapshots for next round
+	if len(currentSnapshots) > 0 {
+		sess.FileSnapshots = currentSnapshots
+	}
 
 	if err := r.sessions.Update(sess); err != nil {
 		return nil, fmt.Errorf("update session: %w", err)

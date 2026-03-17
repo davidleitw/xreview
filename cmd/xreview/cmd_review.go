@@ -67,6 +67,7 @@ func newReviewCmd() *cobra.Command {
 				session.NewManager(flagWorkdir),
 				collector.NewCollector(cfg, flagWorkdir),
 				cfg,
+				flagWorkdir,
 			)
 
 			if sessionID != "" {

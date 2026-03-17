@@ -18,6 +18,12 @@ const (
 	FindingReopened  = "reopened"
 )
 
+// FileSnapshot records a file's checksum at a given round.
+type FileSnapshot struct {
+	Path     string `json:"path"`     // relative to workdir
+	Checksum string `json:"checksum"` // SHA-256 hex
+}
+
 // Session represents the complete state of a review session.
 // Stored as a single session.json file, updated in-place each round.
 type Session struct {
@@ -32,7 +38,8 @@ type Session struct {
 	Context        string    `json:"context"`
 	Targets        []string  `json:"targets"`
 	TargetMode     string    `json:"target_mode"`
-	Findings       []Finding `json:"findings"`
+	Findings       []Finding       `json:"findings"`
+	FileSnapshots  []FileSnapshot  `json:"file_snapshots,omitempty"`
 }
 
 // Finding represents a single review finding.

@@ -15,12 +15,19 @@ type FirstRoundInput struct {
 	FileList    string // summary of files (names + line counts)
 }
 
+// FileChange describes a file that changed between review rounds.
+type FileChange struct {
+	Path   string
+	Status string // "modified", "added", "deleted"
+}
+
 // ResumeInput holds the data for building a resume-round prompt.
 type ResumeInput struct {
 	Message          string
 	PreviousFindings string
 	FetchMethod      string // git command for Codex to re-read files
 	FileList         string // summary of files involved
+	ChangedFiles     []FileChange
 }
 
 // Builder assembles prompts for codex.

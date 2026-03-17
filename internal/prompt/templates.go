@@ -58,7 +58,21 @@ Developer message: "{{.Message}}"
 ===== PREVIOUS FINDINGS =====
 
 {{.PreviousFindings}}
+{{if .ChangedFiles}}
+===== FILES CHANGED SINCE LAST ROUND =====
+The following files have been modified since your last review.
+You MUST re-read these files before evaluating the findings.
+Do NOT rely on file contents from your previous review for these files.
 
+{{range .ChangedFiles}}- [{{.Status}}] {{.Path}}
+{{end}}
+===== END CHANGED FILES =====
+{{else}}
+===== NO FILES CHANGED =====
+No files have changed since your last review.
+Evaluate the findings based on the developer's message and your existing knowledge of the code.
+===== END =====
+{{end}}
 ===== HOW TO GET THE UPDATED CODE =====
 
 {{.FetchMethod}}
