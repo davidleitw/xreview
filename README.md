@@ -170,6 +170,7 @@ Claude Code (host)          xreview (CLI)           Codex (reviewer)
 ## Future Work
 
 - **Language-aware review context** — detect the project's primary language and pass language-specific best practices (e.g., Go error handling patterns, Rust ownership rules, Python type safety) as additional context to Codex, so reviews are informed by the idioms and conventions of the language being reviewed.
+- **Auto-fix mode (`--auto-fix`)** — fully autonomous review-and-fix cycle for vibe coding workflows. Skips the review-only discussion phase and automatically applies recommended fixes with the three-party verify loop, requiring zero user interaction until completion.
 
 ## Uninstall
 

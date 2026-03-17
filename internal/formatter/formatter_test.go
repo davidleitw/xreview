@@ -296,12 +296,16 @@ func TestFormatReviewResult_AgentInstructions_Present(t *testing.T) {
 	// Agent instructions block must appear after </xreview-result>
 	assertContains(t, result, "</xreview-result>\n\n<agent-instructions>")
 	assertContains(t, result, "PHASE 1: VERIFY FINDINGS")
-	assertContains(t, result, "PHASE 2: FIX PLAN")
-	assertContains(t, result, "do NOT start fixing code until user approves")
-	assertContains(t, result, "AskUserQuestion")
+	assertContains(t, result, "PHASE 2: PRESENT ALL CONFIRMED FINDINGS")
+	assertContains(t, result, "PHASE 3: DISCUSSION & FIX GUIDANCE")
 	assertContains(t, result, "1 HIGH severity")
 	assertContains(t, result, "1 MEDIUM severity")
 	assertContains(t, result, "</agent-instructions>")
+
+	// Review-only: should NOT contain old fix-plan / AskUserQuestion behavior
+	assertNotContains(t, result, "FIX PLAN")
+	assertNotContains(t, result, "AskUserQuestion")
+	assertNotContains(t, result, "do NOT start fixing code until user approves")
 }
 
 func TestFormatReviewResult_AgentInstructions_Absent_WhenApproved(t *testing.T) {
@@ -393,7 +397,7 @@ func TestBuildAgentInstructions_GroupByFile(t *testing.T) {
 	assertNotContains(t, result, "REQUIRED ACTIONS for EACH finding")
 }
 
-func TestBuildAgentInstructions_StreamlinedAskUser(t *testing.T) {
+func TestBuildAgentInstructions_ReviewOnlyPresentation(t *testing.T) {
 	findings := []session.Finding{
 		{
 			ID: "F001", Severity: "high", Category: "security", Status: "open",
@@ -404,9 +408,19 @@ func TestBuildAgentInstructions_StreamlinedAskUser(t *testing.T) {
 
 	result := buildAgentInstructions(findings, summary, "xr-test")
 
-	assertContains(t, result, "Press Enter to execute all recommended fixes")
-	assertContains(t, result, "Fix plan ready: 1 confirmed finding(s)")
-	assertNotContains(t, result, "B. Only fix high severity")
+	// Phase 2 should present findings, not build a fix plan
+	assertContains(t, result, "PRESENT ALL CONFIRMED FINDINGS")
+	assertContains(t, result, "STOP here")
+	assertContains(t, result, "Wait for user response")
+
+	// Phase 3 should guide discussion and fix flow
+	assertContains(t, result, "DISCUSSION & FIX GUIDANCE")
+	assertContains(t, result, "xreview review --session xr-test --message")
+
+	// Should NOT contain old fix-plan gate behavior
+	assertNotContains(t, result, "AskUserQuestion")
+	assertNotContains(t, result, "Press Enter to execute all recommended fixes")
+	assertNotContains(t, result, "FIX PLAN")
 }
 
 func assertNotContains(t *testing.T, s, substr string) {

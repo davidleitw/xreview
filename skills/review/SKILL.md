@@ -5,8 +5,8 @@ description: >
   "check code", "找 bug", "review 程式碼", or any variation of reviewing code for bugs,
   security issues, or quality — you MUST use this skill. Do NOT read files and review
   them yourself. This skill delegates review to Codex (a separate AI reviewer) via the
-  xreview CLI, enabling multi-round three-party review (Codex reviews, Claude Code fixes,
-  user decides). Manages the full lifecycle: discover, fix, verify, report.
+  xreview CLI, enabling three-party review (Codex reviews, Claude Code verifies, user decides).
+  Default mode is review-only: present all findings, let user discuss, then fix on demand.
 allowed-tools: Bash(xreview *), Bash(curl *), Bash(which *), AskUserQuestion, Read, Write, Skill
 argument-hint: [files-or-uncommitted]
 ---
@@ -97,13 +97,11 @@ generating the review report.
 Run: `xreview review --files <paths> --context "<structured context>"`
  or: `xreview review --git-uncommitted --context "<structured context>"`
 
-## Step 2.5: Verify + Fix Plan Gate (MANDATORY)
+## Step 2.5: Verify + Present
 
 <CRITICAL>
 - You MUST independently verify EVERY finding before presenting to the user.
 - Do NOT blindly copy Codex output. You are a capable code reviewer — USE your judgement.
-- After verification, present only CONFIRMED findings as a fix plan.
-- You MUST end the fix plan with AskUserQuestion. No exceptions.
 - The xreview output includes `<agent-instructions>` after `</xreview-result>`. Follow them.
 </CRITICAL>
 
@@ -136,74 +134,68 @@ Parse the response:
 - If Codex provides valid counter-reasoning → mark as CONFIRMED
 - If disagreement persists → present both perspectives to user with a note
 
-### Phase 2: Build the Fix Plan (confirmed findings only)
+### Phase 2: Present All Confirmed Findings
 
-For EACH confirmed finding, present:
+After verification, present ALL confirmed findings to the user. For EACH finding:
 
-1. **Header**: `### F-XXX: title (category/severity)` + `📍 file:line`
-2. **Trigger**: the trigger condition — verified by your own code reading
-3. **Impact**: what happens if exploited/triggered
-4. **Cascade**: list every cascade impact — what else breaks
-5. **Fix options**: ALL alternatives, mark which is recommended.
-   Always add a final option: "Don't fix — risk: _consequence_"
+1. **Header**: `### F-XXX [SEVERITY/category] title`
+2. **Location**: `📍 file:line`
+3. **Code**: quote the code you read in Phase 1
+4. **Trigger**: the condition that triggers this issue (from YOUR verification)
+5. **Impact**: what happens if exploited/triggered
+6. **Cascade**: list cascade impacts (what else breaks)
+7. **Suggested fixes**: ALL alternatives with effort levels, mark recommended
 
-Low severity findings may use a shorter format but MUST still include fix options.
+Low severity findings may use a shorter format but MUST still include suggested fixes.
 
-### Get User Approval
-
-After listing ALL confirmed findings, use AskUserQuestion:
-
-```
-Fix plan for N confirmed findings (M suspect findings dropped after Codex discussion).
-Press Enter to execute all recommended fixes, or:
-  S. Skip — don't fix anything right now
-  [F-XXX,...] — list finding IDs to adjust (e.g. "F-003 skip, F-005 use option B")
-```
-
-Do NOT proceed until user responds.
-
-## Step 3: Execute Fixes
-
-Execute fixes strictly per the approved plan. No re-analysis, no ad-hoc decisions.
-
-For each finding marked for fix:
-1. Apply the chosen fix approach.
-2. Briefly report what you did (one line per finding).
-
-If user chose option C with adjustments, follow those exactly.
-Skip any finding the user chose to not fix.
-
-## Step 4: Summary + Verify
-
-Present a summary table:
+After ALL findings, tell the user:
 
 ```
-### Round N Summary
-
-| ID    | Issue              | Action       | Detail                          |
-|-------|--------------------|--------------|---------------------------------|
-| F-001 | SQL injection      | Fixed (A)    | Changed to parameterized query  |
-| F-002 | Unused error       | Not fixed    | User: acceptable for demo code  |
+以上是本次 review 的發現。你可以：
+- 討論任何 finding 的細節
+- 告訴我要修哪些（例如「修 F-001 和 F-003」）
+- 如果有其他想讓 Codex 檢查的方向，也可以告訴我
 ```
 
-Then run verification with enhanced scope:
+**Stop here. Wait for the user to respond.** Do NOT auto-proceed to fixing.
 
-`xreview review --session <session-id> --message "<message>"`
+## Step 3: Discussion
 
-The message MUST include:
-- Which findings were fixed and how
-- Which findings were dismissed and why
-- Explicit instruction: "Re-review ALL modified files. Beyond verifying old findings, also check:
-  1. Whether fixes introduced new security/logic issues
-  2. Unhandled cascade impact between fixes
-  3. Cross-layer consistency (if DB layer changed, are cache/handler layers in sync)"
-- Scope restriction: "Only report NEW findings that are directly caused by or exposed by the fixes.
-  Do NOT report pre-existing issues unrelated to the changes."
+This is a free-form conversation. Handle user messages based on their intent:
 
-Parse the result:
-- All resolved → proceed to Step 5.
-- Codex disagrees or finds new issues → present new/reopened findings with the same Fix Plan format (Step 2.5), get user approval, then fix.
-- Maximum 5 rounds → inform user of remaining items, proceed to Step 5.
+- **User asks about a finding** (e.g. "F-001 的影響範圍?")
+  → Read code, explain context and details.
+
+- **User challenges a finding** (e.g. "F-002 那邊上層已經檢查過了")
+  → Re-verify against code. If the user is right, update classification and tell them.
+
+- **User asks Codex to check something new** (e.g. "還有沒有其他 SQL injection?")
+  → Run: `xreview review --session <session-id> --message "<user's question>"`
+  → Verify any new findings (Phase 1 process), then present them (Phase 2 format).
+
+- **User requests fixes** (e.g. "修 F-001 和 F-003")
+  → Proceed to Step 4.
+
+## Step 4: Fix + Verify
+
+When the user specifies which findings to fix:
+
+1. Apply fixes for the specified findings only.
+2. Run verification:
+   `xreview review --session <session-id> --message "<message>"`
+
+   The message MUST include:
+   - Which findings were fixed and how
+   - Which findings were dismissed and why
+   - Scope instruction: "Verify fixes and check for new issues introduced by the changes.
+     Only report NEW findings directly caused by or exposed by the fixes.
+     Do NOT report pre-existing issues unrelated to the changes."
+
+3. Parse the result:
+   - All resolved → proceed to Step 5.
+   - New/reopened findings → verify and present them (same Phase 1 + Phase 2 format),
+     let user decide again.
+   - Maximum 5 rounds → inform user of remaining items, proceed to Step 5.
 
 ## Step 5: Finalize
 
@@ -227,11 +219,10 @@ Stop here. The write-report skill handles report generation, saving, and session
 - Do NOT read or write .xreview/ directory files directly. Use only xreview CLI commands.
 - The session ID is in the XML output's session attribute. Track it for resume calls.
 - If any xreview command fails, show the error to the user and ask how to proceed.
-- This is a THREE-PARTY REVIEW: Codex (reviewer), you Claude Code (executor), and the
-  user (decision maker). You MUST present ALL findings as a Fix Plan and get user
-  approval via AskUserQuestion BEFORE making any code changes. The user always has
-  final say, including the option to not fix any finding.
-- Use --message to convey user decisions and your reasoning to codex. Codex is smart
+- This is a THREE-PARTY REVIEW: Codex (reviewer), you Claude Code (verifier), and the
+  user (decision maker). Present ALL verified findings and let the user decide which
+  to fix. The user always has final say, including the option to not fix any finding.
+- Use --message to convey user decisions and your reasoning to Codex. Codex is smart
   enough to reconsider when given good reasoning from the user.
 
 ## XML Schema Reference

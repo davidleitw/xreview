@@ -170,6 +170,7 @@ Claude Code (host)          xreview (CLI)           Codex (reviewer)
 ## 未來方向
 
 - **語言感知的審查上下文** — 自動偵測專案主要開發語言，將該語言的 best practice（例如 Go 的 error handling 慣例、Rust 的 ownership 規則、Python 的型別安全）作為額外 context 傳給 Codex，讓審查結果更貼合該語言的慣用寫法和規範。
+- **全自動修復模式 (`--auto-fix`)** — 針對 vibe coding 工作流的全自動 review + 修復循環。跳過 review-only 討論階段，自動套用建議修復並走三方驗證 loop，全程不需要用戶介入。
 
 ## 移除
 
