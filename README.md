@@ -175,6 +175,8 @@ Claude Code (host)          xreview (CLI)           Codex (reviewer)
 
 ## Future Work
 
+See [Roadmap & Design](docs/specs/2026-03-17-roadmap-next-generation-review.md) for the full plan. Key directions:
+
 - **Context engineering** — structured context files and focused review angles, letting Claude Code prepare architectural context (symbol cross-references, call chains, data structure shapes) before Codex reviews. Solves the "semantic gap" where code works correctly but communicates intent poorly.
 - **Multi-angle review** — dispatch multiple parallel Codex reviews, each focused on a different concern (semantic consistency, lifecycle naming, bugs/security), then merge and deduplicate findings. Claude Code decides when multi-angle is warranted based on code complexity.
 - **Design plan review** — review implementation plans and design docs before execution, checking for feasibility issues, missing edge cases, and architectural conflicts with existing code.
