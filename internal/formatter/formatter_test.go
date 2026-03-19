@@ -36,6 +36,8 @@ func TestFormatReviewResult_WithFindings(t *testing.T) {
 			Description: "SQL injection vulnerability",
 			Suggestion:  "Use parameterized queries",
 			CodeSnippet: `db.Query("SELECT * FROM users WHERE id=" + id)`,
+			Confidence:  85,
+			FixStrategy: "auto",
 		},
 	}
 	summary := session.FindingSummary{Total: 1, Open: 1}
@@ -196,6 +198,8 @@ func TestFormatReviewResult_EnrichedFields(t *testing.T) {
 			Line:        19,
 			Description: "SQL injection",
 			Suggestion:  "Use parameterized query",
+			Confidence:  90,
+			FixStrategy: "auto",
 			Trigger:     "attacker sends id=' OR '1'='1",
 			CascadeImpact: []string{
 				"handler/task.go:GetTaskHandler() — passes input directly",
@@ -295,17 +299,15 @@ func TestFormatReviewResult_AgentInstructions_Present(t *testing.T) {
 
 	// Agent instructions block must appear after </xreview-result>
 	assertContains(t, result, "</xreview-result>\n\n<agent-instructions>")
-	assertContains(t, result, "PHASE 1: VERIFY FINDINGS")
-	assertContains(t, result, "PHASE 2: PRESENT ALL CONFIRMED FINDINGS")
-	assertContains(t, result, "PHASE 3: DISCUSSION & FIX GUIDANCE")
-	assertContains(t, result, "1 HIGH severity")
-	assertContains(t, result, "1 MEDIUM severity")
+	assertContains(t, result, "Session ID: xr-test")
+	assertContains(t, result, "skill instructions")
+	assertContains(t, result, "High severity: 1")
 	assertContains(t, result, "</agent-instructions>")
 
-	// Review-only: should NOT contain old fix-plan / AskUserQuestion behavior
+	// Simplified: should NOT contain old verbose phases
+	assertNotContains(t, result, "PHASE 1: VERIFY FINDINGS")
 	assertNotContains(t, result, "FIX PLAN")
 	assertNotContains(t, result, "AskUserQuestion")
-	assertNotContains(t, result, "do NOT start fixing code until user approves")
 }
 
 func TestFormatReviewResult_AgentInstructions_Absent_WhenApproved(t *testing.T) {
@@ -341,10 +343,10 @@ func TestFormatReviewResult_AgentInstructions_SeverityCounts(t *testing.T) {
 
 	result := FormatReviewResult("xr-test", 1, "REVISE", findings, summary)
 
-	assertContains(t, result, "2 HIGH severity")
-	assertContains(t, result, "1 LOW severity")
-	// F004 is fixed, should not count as medium
-	assertNotContains(t, result, "MEDIUM severity")
+	assertContains(t, result, "High severity: 2")
+	assertContains(t, result, "Auto-fixable: 0, Needs discussion: 3")
+	// F004 is fixed, should not affect open counts
+	assertContains(t, result, "3 open")
 }
 
 func assertContains(t *testing.T, s, substr string) {
@@ -366,35 +368,35 @@ func TestBuildAgentInstructions_ContainsVerificationStep(t *testing.T) {
 
 	result := buildAgentInstructions(findings, summary, sessionID)
 
-	assertContains(t, result, "VERIFY FINDINGS")
-	assertContains(t, result, "USE the Read tool")
-	assertContains(t, result, "QUOTE the relevant code lines")
-	assertContains(t, result, "SHOW YOUR WORK")
-	assertContains(t, result, "CONFIRMED")
-	assertContains(t, result, "SUSPECT")
-	assertContains(t, result, "blind proxy")
+	assertContains(t, result, "skill instructions")
+	assertContains(t, result, "Session ID: "+sessionID)
 	assertContains(t, result, "xreview review --session")
 	assertContains(t, result, sessionID)
+	assertContains(t, result, "High severity: 1")
 }
 
-func TestBuildAgentInstructions_GroupByFile(t *testing.T) {
+func TestBuildAgentInstructions_MultipleFindings(t *testing.T) {
 	findings := []session.Finding{
 		{
 			ID: "F001", Severity: "high", Category: "security", Status: "open",
 			File: "db.go", Line: 19, Description: "SQL injection",
+			FixStrategy: "auto",
 		},
 		{
 			ID: "F002", Severity: "medium", Category: "logic", Status: "open",
 			File: "db.go", Line: 45, Description: "missing error check",
+			FixStrategy: "ask",
 		},
 	}
 	summary := session.FindingSummary{Total: 2, Open: 2}
 
 	result := buildAgentInstructions(findings, summary, "xr-test")
 
-	assertContains(t, result, "Group findings by file")
-	assertContains(t, result, "Read each file ONCE")
-	assertNotContains(t, result, "REQUIRED ACTIONS for EACH finding")
+	assertContains(t, result, "2 total")
+	assertContains(t, result, "2 open")
+	assertContains(t, result, "High severity: 1")
+	assertContains(t, result, "Auto-fixable: 1, Needs discussion: 1")
+	assertContains(t, result, "skill instructions")
 }
 
 func TestBuildAgentInstructions_ReviewOnlyPresentation(t *testing.T) {
@@ -408,19 +410,49 @@ func TestBuildAgentInstructions_ReviewOnlyPresentation(t *testing.T) {
 
 	result := buildAgentInstructions(findings, summary, "xr-test")
 
-	// Phase 2 should present findings, not build a fix plan
-	assertContains(t, result, "PRESENT ALL CONFIRMED FINDINGS")
-	assertContains(t, result, "STOP here")
-	assertContains(t, result, "Wait for user response")
+	// Simplified instructions delegate to skill instructions
+	assertContains(t, result, "skill instructions")
+	assertContains(t, result, "Session ID: xr-test")
+	assertContains(t, result, "xreview review --session")
 
-	// Phase 3 should guide discussion and fix flow
-	assertContains(t, result, "DISCUSSION & FIX GUIDANCE")
-	assertContains(t, result, "xreview review --session xr-test --message")
-
-	// Should NOT contain old fix-plan gate behavior
+	// Should NOT contain old verbose phase behavior
+	assertNotContains(t, result, "PHASE 1: VERIFY FINDINGS")
+	assertNotContains(t, result, "PRESENT ALL CONFIRMED FINDINGS")
+	assertNotContains(t, result, "DISCUSSION & FIX GUIDANCE")
 	assertNotContains(t, result, "AskUserQuestion")
-	assertNotContains(t, result, "Press Enter to execute all recommended fixes")
 	assertNotContains(t, result, "FIX PLAN")
+}
+
+func TestFormatReviewResult_IncludesConfidenceAndFixStrategy(t *testing.T) {
+	findings := []session.Finding{
+		{
+			ID: "F001", Severity: "high", Category: "security",
+			Status: "open", File: "main.go", Line: 42,
+			Description: "SQL injection", Confidence: 90, FixStrategy: "auto",
+		},
+	}
+	summary := session.FindingSummary{Total: 1, Open: 1}
+	result := FormatReviewResult("xr-test", 1, "REVISE", findings, summary)
+	assertContains(t, result, `confidence="90"`)
+	assertContains(t, result, `fix-strategy="auto"`)
+}
+
+func TestFormatReviewResult_AgentInstructionsSimplified(t *testing.T) {
+	findings := []session.Finding{
+		{
+			ID: "F001", Severity: "high", Category: "security",
+			Status: "open", File: "main.go", Line: 42,
+			Description: "test", Confidence: 80, FixStrategy: "ask",
+		},
+	}
+	summary := session.FindingSummary{Total: 1, Open: 1}
+	result := FormatReviewResult("xr-test", 1, "REVISE", findings, summary)
+	assertContains(t, result, "<agent-instructions>")
+	assertContains(t, result, "xr-test")
+	assertContains(t, result, "skill instructions")
+	if strings.Contains(result, "PHASE 1: VERIFY FINDINGS") {
+		t.Error("agent instructions should not contain verbose Phase 1 workflow")
+	}
 }
 
 func assertNotContains(t *testing.T, s, substr string) {
