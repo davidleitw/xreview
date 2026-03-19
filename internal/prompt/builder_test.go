@@ -151,7 +151,7 @@ func TestFormatFindingsForPrompt_WithFindings(t *testing.T) {
 	result := b.FormatFindingsForPrompt(findings)
 
 	assertContains(t, result, "[F001]")
-	assertContains(t, result, "(high/security)")
+	assertContains(t, result, "high/security")
 	assertContains(t, result, "main.go:42")
 	assertContains(t, result, "SQL injection vulnerability")
 	assertContains(t, result, "[status: open]")
@@ -346,6 +346,23 @@ func TestBuildFirstRound_ContainsTODOExclusionRule(t *testing.T) {
 	assertContains(t, result, "TODO")
 	assertContains(t, result, "BUG")
 	assertContains(t, result, "FIXME")
+}
+
+func TestFormatFindingsForPrompt_IncludesConfidenceAndStrategy(t *testing.T) {
+	b, err := NewBuilder()
+	if err != nil {
+		t.Fatal(err)
+	}
+	findings := []session.Finding{
+		{
+			ID: "F-001", Severity: "high", Category: "security",
+			File: "main.go", Line: 42, Description: "SQL injection",
+			Status: "open", Confidence: 90, FixStrategy: "auto",
+		},
+	}
+	result := b.FormatFindingsForPrompt(findings)
+	assertContains(t, result, "confidence:90")
+	assertContains(t, result, "strategy:auto")
 }
 
 func TestBuildFirstRound_ContainsConfidenceInstructions(t *testing.T) {
