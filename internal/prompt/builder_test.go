@@ -348,6 +348,26 @@ func TestBuildFirstRound_ContainsTODOExclusionRule(t *testing.T) {
 	assertContains(t, result, "FIXME")
 }
 
+func TestBuildFirstRound_ContainsConfidenceInstructions(t *testing.T) {
+	b, err := NewBuilder()
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := FirstRoundInput{
+		Context:     "test",
+		FetchMethod: "read files",
+		FileList:    "main.go",
+	}
+	result, err := b.BuildFirstRound(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertContains(t, result, "confidence")
+	assertContains(t, result, "fix_strategy")
+	assertContains(t, result, `"auto"`)
+	assertContains(t, result, `"ask"`)
+}
+
 func assertContains(t *testing.T, s, substr string) {
 	t.Helper()
 	if !strings.Contains(s, substr) {
