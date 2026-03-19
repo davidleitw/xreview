@@ -327,7 +327,9 @@ func mergeFindings(existing []session.Finding, incoming []session.CodexFinding) 
 			if len(cf.FixAlternatives) > 0 {
 				existing[idx].FixAlternatives = cf.FixAlternatives
 			}
-			existing[idx].Confidence = cf.Confidence
+			if cf.Confidence > 0 {
+				existing[idx].Confidence = cf.Confidence
+			}
 			existing[idx].FixStrategy = fixStrategy
 		} else {
 			// New finding
