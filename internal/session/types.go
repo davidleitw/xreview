@@ -18,6 +18,8 @@ const (
 	FindingReopened  = "reopened"
 )
 
+const CurrentSessionVersion = 2
+
 // FileSnapshot records a file's checksum at a given round.
 type FileSnapshot struct {
 	Path     string `json:"path"`     // relative to workdir
@@ -27,6 +29,7 @@ type FileSnapshot struct {
 // Session represents the complete state of a review session.
 // Stored as a single session.json file, updated in-place each round.
 type Session struct {
+	Version        int       `json:"version"`
 	SessionID      string    `json:"session_id"`
 	XReviewVersion string    `json:"xreview_version"`
 	CreatedAt      time.Time `json:"created_at"`
@@ -57,6 +60,8 @@ type Finding struct {
 	Trigger          string           `json:"trigger,omitempty"`
 	CascadeImpact    []string         `json:"cascade_impact,omitempty"`
 	FixAlternatives  []FixAlternative `json:"fix_alternatives,omitempty"`
+	Confidence       int              `json:"confidence"`
+	FixStrategy      string           `json:"fix_strategy"`
 }
 
 // FixAlternative represents one possible fix approach for a finding.
@@ -113,4 +118,6 @@ type CodexFinding struct {
 	Trigger          string           `json:"trigger,omitempty"`
 	CascadeImpact    []string         `json:"cascade_impact,omitempty"`
 	FixAlternatives  []FixAlternative `json:"fix_alternatives,omitempty"`
+	Confidence       int              `json:"confidence"`
+	FixStrategy      string           `json:"fix_strategy"`
 }

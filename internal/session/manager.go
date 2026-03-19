@@ -40,6 +40,7 @@ func (m *manager) Create(targets []string, targetMode, ctx string, cfg *config.C
 	}
 
 	sess := &Session{
+		Version:        CurrentSessionVersion,
 		SessionID:      id,
 		XReviewVersion: version.Version,
 		CreatedAt:      time.Now().UTC(),
@@ -79,6 +80,12 @@ func (m *manager) Load(sessionID string) (*Session, error) {
 	if err := json.Unmarshal(data, &sess); err != nil {
 		return nil, fmt.Errorf("parse session.json: %w", err)
 	}
+
+	if sess.Version != CurrentSessionVersion {
+		return nil, fmt.Errorf("session %s uses schema version %d (current: %d); please start a new review",
+			sessionID, sess.Version, CurrentSessionVersion)
+	}
+
 	return &sess, nil
 }
 
