@@ -7,11 +7,21 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"time"
 
 	"github.com/davidleitw/xreview/internal/config"
 	"github.com/davidleitw/xreview/internal/version"
 )
+
+var validSessionID = regexp.MustCompile(`^xr-[0-9]{8}-[0-9a-f]{6}$`)
+
+func validateSessionID(id string) error {
+	if !validSessionID.MatchString(id) {
+		return fmt.Errorf("invalid session ID format: %q", id)
+	}
+	return nil
+}
 
 // Manager handles session CRUD operations.
 type Manager interface {
@@ -67,6 +77,9 @@ func (m *manager) Create(targets []string, targetMode, ctx string, cfg *config.C
 }
 
 func (m *manager) Load(sessionID string) (*Session, error) {
+	if err := validateSessionID(sessionID); err != nil {
+		return nil, err
+	}
 	path := filepath.Join(m.sessionsDir, sessionID, "session.json")
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -95,6 +108,9 @@ func (m *manager) Update(sess *Session) error {
 }
 
 func (m *manager) Delete(sessionID string) error {
+	if err := validateSessionID(sessionID); err != nil {
+		return err
+	}
 	dir := filepath.Join(m.sessionsDir, sessionID)
 	return os.RemoveAll(dir)
 }
