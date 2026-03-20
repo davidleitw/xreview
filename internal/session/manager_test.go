@@ -1,6 +1,7 @@
 package session
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/davidleitw/xreview/internal/config"
@@ -184,6 +185,102 @@ func TestManager_RoundTrip_EnrichedFindings(t *testing.T) {
 	}
 	if f.FixAlternatives[1].Effort != "large" {
 		t.Errorf("alternative[1] effort mismatch: got %q", f.FixAlternatives[1].Effort)
+	}
+}
+
+func TestManager_Load_RejectsOldVersion(t *testing.T) {
+	dir := t.TempDir()
+	mgr := NewManager(dir)
+	cfg := &config.Config{CodexModel: "gpt-5.3-Codex"}
+
+	sess, err := mgr.Create([]string{"a.go"}, "files", "", cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	sess.Version = 0
+	if err := mgr.Update(sess); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = mgr.Load(sess.SessionID)
+	if err == nil {
+		t.Fatal("expected error loading session with old version")
+	}
+	if !strings.Contains(err.Error(), "version") {
+		t.Errorf("expected error to contain 'version', got: %v", err)
+	}
+}
+
+func TestManager_Load_RejectsFutureVersion(t *testing.T) {
+	dir := t.TempDir()
+	mgr := NewManager(dir)
+	cfg := &config.Config{CodexModel: "gpt-5.3-Codex"}
+
+	sess, err := mgr.Create([]string{"a.go"}, "files", "", cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	sess.Version = 999
+	if err := mgr.Update(sess); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = mgr.Load(sess.SessionID)
+	if err == nil {
+		t.Fatal("expected error loading session with future version")
+	}
+	if !strings.Contains(err.Error(), "version") {
+		t.Errorf("expected error to contain 'version', got: %v", err)
+	}
+}
+
+func TestManager_RoundTrip_ConfidenceAndFixStrategy(t *testing.T) {
+	dir := t.TempDir()
+	mgr := NewManager(dir)
+	cfg := &config.Config{CodexModel: "gpt-5.3-Codex"}
+
+	sess, err := mgr.Create([]string{"main.go"}, "files", "ctx", cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	sess.Findings = []Finding{
+		{
+			ID: "F001", Severity: "high", Category: "security",
+			Status: FindingOpen, File: "a.go", Line: 10,
+			Description: "issue1", Suggestion: "fix1",
+			Confidence: 85, FixStrategy: "auto",
+		},
+		{
+			ID: "F002", Severity: "low", Category: "style",
+			Status: FindingOpen, File: "b.go", Line: 20,
+			Description: "issue2", Suggestion: "fix2",
+			Confidence: 40, FixStrategy: "ask",
+		},
+	}
+
+	if err := mgr.Update(sess); err != nil {
+		t.Fatal(err)
+	}
+
+	loaded, err := mgr.Load(sess.SessionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if loaded.Findings[0].Confidence != 85 {
+		t.Errorf("expected confidence 85, got %d", loaded.Findings[0].Confidence)
+	}
+	if loaded.Findings[0].FixStrategy != "auto" {
+		t.Errorf("expected fix_strategy 'auto', got %q", loaded.Findings[0].FixStrategy)
+	}
+	if loaded.Findings[1].Confidence != 40 {
+		t.Errorf("expected confidence 40, got %d", loaded.Findings[1].Confidence)
+	}
+	if loaded.Findings[1].FixStrategy != "ask" {
+		t.Errorf("expected fix_strategy 'ask', got %q", loaded.Findings[1].FixStrategy)
 	}
 }
 

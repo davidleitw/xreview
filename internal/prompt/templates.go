@@ -46,7 +46,17 @@ For each finding, you MUST also provide these fields:
   You are encouraged to read additional files to identify these. Empty array [] if none.
 - fix_alternatives: provide 2-3 fix approaches. Each has label (A/B/C), description,
   effort (minimal/moderate/large), and recommended (true for exactly one).
-  Consider trade-offs: minimal fix vs. systemic improvement.`
+  Consider trade-offs: minimal fix vs. systemic improvement.
+- confidence: 0-100. How certain you are this is a real issue.
+  100 = you can see the exact bug. 50 = it looks suspicious but you're not sure.
+  0 = pure speculation. Be honest — overconfidence wastes the verifier's time.
+- fix_strategy: "auto" or "ask".
+  "auto" = a senior engineer would apply this fix without discussion:
+    dead code, missing error check, obvious single-fix bug, stale comment.
+  "ask" = reasonable engineers could disagree on the approach:
+    security trade-offs, design decisions, behavior changes, multi-approach fixes,
+    anything where confidence < 60.
+  When in doubt, use "ask".`
 
 // ResumeTemplate is the prompt template for follow-up review rounds.
 const ResumeTemplate = `This is a follow-up review. You previously reviewed these files and
@@ -118,7 +128,9 @@ Use this exact schema:
       "cascade_impact": ["file:func() — impact description"],
       "fix_alternatives": [
         {"label": "A", "description": "fix approach", "effort": "minimal|moderate|large", "recommended": true}
-      ]
+      ],
+      "confidence": 85,
+      "fix_strategy": "auto|ask"
     }
   ]
 }`

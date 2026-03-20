@@ -79,8 +79,8 @@ func (b *builder) FormatFindingsForPrompt(findings []session.Finding) string {
 
 	var buf bytes.Buffer
 	for _, f := range findings {
-		fmt.Fprintf(&buf, "[%s] (%s/%s) %s:%d — %s [status: %s]\n",
-			f.ID, f.Severity, f.Category, f.File, f.Line, f.Description, f.Status)
+		fmt.Fprintf(&buf, "[%s] (%s/%s, confidence:%d, strategy:%s) %s:%d — %s [status: %s]\n",
+			f.ID, f.Severity, f.Category, f.Confidence, f.FixStrategy, f.File, f.Line, f.Description, f.Status)
 		if f.Suggestion != "" {
 			fmt.Fprintf(&buf, "  Suggestion: %s\n", f.Suggestion)
 		}

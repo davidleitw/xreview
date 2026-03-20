@@ -265,6 +265,10 @@ func codexFindingsToFindings(cf []session.CodexFinding) []session.Finding {
 		if status == "" {
 			status = session.FindingOpen
 		}
+		fixStrategy := f.FixStrategy
+		if fixStrategy == "" {
+			fixStrategy = "ask"
+		}
 		findings[i] = session.Finding{
 			ID:               f.ID,
 			Severity:         f.Severity,
@@ -279,6 +283,8 @@ func codexFindingsToFindings(cf []session.CodexFinding) []session.Finding {
 			Trigger:          f.Trigger,
 			CascadeImpact:    f.CascadeImpact,
 			FixAlternatives:  f.FixAlternatives,
+			Confidence:       f.ConfidenceOrDefault(0),
+			FixStrategy:      fixStrategy,
 		}
 	}
 	return findings
@@ -297,9 +303,16 @@ func mergeFindings(existing []session.Finding, incoming []session.CodexFinding) 
 		if status == "" {
 			status = session.FindingOpen
 		}
+		fixStrategy := cf.FixStrategy
+		if fixStrategy == "" {
+			fixStrategy = "ask"
+		}
 		if idx, ok := byID[cf.ID]; ok {
-			// Update existing finding
-			existing[idx].Status = status
+			// Update existing finding — only overwrite fields that Codex explicitly provided.
+			// Empty/nil values mean "not provided in this round", not "reset to default".
+			if cf.Status != "" {
+				existing[idx].Status = cf.Status
+			}
 			existing[idx].VerificationNote = cf.VerificationNote
 			if cf.Description != "" {
 				existing[idx].Description = cf.Description
@@ -307,7 +320,6 @@ func mergeFindings(existing []session.Finding, incoming []session.CodexFinding) 
 			if cf.Suggestion != "" {
 				existing[idx].Suggestion = cf.Suggestion
 			}
-			// Preserve enriched data from earlier rounds when verification returns sparse findings
 			if cf.Trigger != "" {
 				existing[idx].Trigger = cf.Trigger
 			}
@@ -316,6 +328,12 @@ func mergeFindings(existing []session.Finding, incoming []session.CodexFinding) 
 			}
 			if len(cf.FixAlternatives) > 0 {
 				existing[idx].FixAlternatives = cf.FixAlternatives
+			}
+			if cf.Confidence != nil {
+				existing[idx].Confidence = *cf.Confidence
+			}
+			if cf.FixStrategy != "" {
+				existing[idx].FixStrategy = cf.FixStrategy
 			}
 		} else {
 			// New finding
@@ -333,6 +351,8 @@ func mergeFindings(existing []session.Finding, incoming []session.CodexFinding) 
 				Trigger:          cf.Trigger,
 				CascadeImpact:    cf.CascadeImpact,
 				FixAlternatives:  cf.FixAlternatives,
+				Confidence:       cf.ConfidenceOrDefault(0),
+				FixStrategy:      fixStrategy,
 			})
 		}
 	}

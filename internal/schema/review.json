@@ -48,9 +48,20 @@
               "additionalProperties": false
             },
             "description": "2-3 fix approaches with effort estimate. At least one must be recommended."
+          },
+          "confidence": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "How certain you are this is a real issue (0=guess, 100=certain)"
+          },
+          "fix_strategy": {
+            "type": "string",
+            "enum": ["auto", "ask"],
+            "description": "auto: senior engineer would fix without discussion. ask: needs human decision."
           }
         },
-        "required": ["id", "severity", "category", "file", "line", "description", "suggestion", "code_snippet", "status", "verification_note", "trigger", "cascade_impact", "fix_alternatives"],
+        "required": ["id", "severity", "category", "file", "line", "description", "suggestion", "code_snippet", "status", "verification_note", "trigger", "cascade_impact", "fix_alternatives", "confidence", "fix_strategy"],
         "additionalProperties": false
       }
     }
