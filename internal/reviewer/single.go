@@ -308,8 +308,11 @@ func mergeFindings(existing []session.Finding, incoming []session.CodexFinding) 
 			fixStrategy = "ask"
 		}
 		if idx, ok := byID[cf.ID]; ok {
-			// Update existing finding
-			existing[idx].Status = status
+			// Update existing finding — only overwrite fields that Codex explicitly provided.
+			// Empty/nil values mean "not provided in this round", not "reset to default".
+			if cf.Status != "" {
+				existing[idx].Status = cf.Status
+			}
 			existing[idx].VerificationNote = cf.VerificationNote
 			if cf.Description != "" {
 				existing[idx].Description = cf.Description
@@ -317,7 +320,6 @@ func mergeFindings(existing []session.Finding, incoming []session.CodexFinding) 
 			if cf.Suggestion != "" {
 				existing[idx].Suggestion = cf.Suggestion
 			}
-			// Preserve enriched data from earlier rounds when verification returns sparse findings
 			if cf.Trigger != "" {
 				existing[idx].Trigger = cf.Trigger
 			}
@@ -330,7 +332,9 @@ func mergeFindings(existing []session.Finding, incoming []session.CodexFinding) 
 			if cf.Confidence != nil {
 				existing[idx].Confidence = *cf.Confidence
 			}
-			existing[idx].FixStrategy = fixStrategy
+			if cf.FixStrategy != "" {
+				existing[idx].FixStrategy = cf.FixStrategy
+			}
 		} else {
 			// New finding
 			existing = append(existing, session.Finding{

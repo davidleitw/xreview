@@ -94,6 +94,10 @@ func (m *manager) Load(sessionID string) (*Session, error) {
 		return nil, fmt.Errorf("parse session.json: %w", err)
 	}
 
+	if sess.SessionID != sessionID {
+		return nil, fmt.Errorf("session ID mismatch: file contains %q but requested %q", sess.SessionID, sessionID)
+	}
+
 	if sess.Version != CurrentSessionVersion {
 		return nil, fmt.Errorf("session %s uses schema version %d (current: %d); please start a new review",
 			sessionID, sess.Version, CurrentSessionVersion)
