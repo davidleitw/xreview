@@ -283,7 +283,7 @@ func codexFindingsToFindings(cf []session.CodexFinding) []session.Finding {
 			Trigger:          f.Trigger,
 			CascadeImpact:    f.CascadeImpact,
 			FixAlternatives:  f.FixAlternatives,
-			Confidence:       f.Confidence,
+			Confidence:       f.ConfidenceOrDefault(0),
 			FixStrategy:      fixStrategy,
 		}
 	}
@@ -327,8 +327,8 @@ func mergeFindings(existing []session.Finding, incoming []session.CodexFinding) 
 			if len(cf.FixAlternatives) > 0 {
 				existing[idx].FixAlternatives = cf.FixAlternatives
 			}
-			if cf.Confidence > 0 {
-				existing[idx].Confidence = cf.Confidence
+			if cf.Confidence != nil {
+				existing[idx].Confidence = *cf.Confidence
 			}
 			existing[idx].FixStrategy = fixStrategy
 		} else {
@@ -347,7 +347,7 @@ func mergeFindings(existing []session.Finding, incoming []session.CodexFinding) 
 				Trigger:          cf.Trigger,
 				CascadeImpact:    cf.CascadeImpact,
 				FixAlternatives:  cf.FixAlternatives,
-				Confidence:       cf.Confidence,
+				Confidence:       cf.ConfidenceOrDefault(0),
 				FixStrategy:      fixStrategy,
 			})
 		}

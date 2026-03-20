@@ -104,6 +104,7 @@ type CodexResponse struct {
 }
 
 // CodexFinding is a single finding as returned by codex JSON output.
+// Confidence is a pointer to distinguish "not provided" (nil) from "explicitly 0".
 type CodexFinding struct {
 	ID               string `json:"id"`
 	Severity         string `json:"severity"`
@@ -118,6 +119,14 @@ type CodexFinding struct {
 	Trigger          string           `json:"trigger,omitempty"`
 	CascadeImpact    []string         `json:"cascade_impact,omitempty"`
 	FixAlternatives  []FixAlternative `json:"fix_alternatives,omitempty"`
-	Confidence       int              `json:"confidence"`
+	Confidence       *int             `json:"confidence"`
 	FixStrategy      string           `json:"fix_strategy"`
+}
+
+// ConfidenceOrDefault returns the confidence value, or fallback if Codex did not provide one.
+func (f *CodexFinding) ConfidenceOrDefault(fallback int) int {
+	if f.Confidence != nil {
+		return *f.Confidence
+	}
+	return fallback
 }
