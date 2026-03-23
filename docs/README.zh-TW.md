@@ -66,6 +66,16 @@ xreview skill 會自動觸發。也可以直接呼叫：
 | **錯誤處理** | 忽略 error、resource leak、未關閉連線 |
 | **效能** | N+1 query、不必要的記憶體分配 |
 
+### 語言特化審查
+
+xreview 透過 `--language` 支援語言感知的審查。當 skill 偵測到審查目標是支援的語言時，會自動將語言特定的審查規則加入 Codex prompt。
+
+| 語言 | Key | 審查規則 |
+|------|-----|----------|
+| C++ | `cpp` | ISO C++ Core Guidelines — 記憶體安全、UB、並行、例外安全、所有權、類別設計 |
+
+不支援的語言會回退到通用審查模式（與不帶 flag 的行為相同）。更多語言即將支援。
+
 ### 三方審查迴圈
 
 每個問題都會經過結構化分析：
@@ -107,6 +117,7 @@ xreview 是一個獨立的 Go binary，Claude Code 在背後呼叫它：
 |------|------|
 | `xreview preflight` | 檢查環境（codex 安裝、API key、版本、更新） |
 | `xreview review --files <paths>` | 執行初始審查 |
+| `xreview review --files <paths> --language cpp` | 使用語言特化規則審查 |
 | `xreview review --session <id> --message "..."` | 恢復驗證輪次 |
 | `xreview report --session <id>` | 產生最終報告 |
 | `xreview clean --session <id>` | 清理 session 資料 |
@@ -176,7 +187,7 @@ Claude Code (host)          xreview (CLI)           Codex (reviewer)
 
 - **第二意見 (Second Opinion)** — 將同一份程式碼送給第二個獨立的 reviewer（不同模型或不同的 prompt 焦點），彙整發現。每個 reviewer 有自己的 session；xreview 在呈現給使用者前合併並去重。
 - **審查計畫 (Review Plan)** — 單輪、唯讀的審查模式，產出結構化的審查計畫（要檢查什麼、檢查順序、要注意哪些 pattern），而不實際執行審查。適用於大型 codebase，在投入完整 review 之前先界定範圍。
-- **語言感知的審查上下文** — 自動偵測專案主要開發語言，將該語言的 best practice（例如 Go 的 error handling 慣例、Rust 的 ownership 規則、Python 的型別安全）作為額外 context 傳給 Codex，讓審查結果更貼合該語言的慣用寫法和規範。
+- **更多語言特化規則** — `--language` 目前支援 C++（ISO Core Guidelines）。計畫新增 Go、Rust、TypeScript、Python 等語言。
 - **全自動修復模式 (`--auto-fix`)** — 針對 vibe coding 工作流的全自動 review + 修復循環。跳過 review-only 討論階段，自動套用建議修復並走三方驗證 loop，全程不需要用戶介入。
 
 ## 移除
