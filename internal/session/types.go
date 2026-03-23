@@ -43,6 +43,7 @@ type Session struct {
 	TargetMode     string    `json:"target_mode"`
 	Findings       []Finding       `json:"findings"`
 	FileSnapshots  []FileSnapshot  `json:"file_snapshots,omitempty"`
+	Language       string          `json:"language,omitempty"`
 }
 
 // Finding represents a single review finding.

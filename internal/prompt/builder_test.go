@@ -385,6 +385,84 @@ func TestBuildFirstRound_ContainsConfidenceInstructions(t *testing.T) {
 	assertContains(t, result, `"ask"`)
 }
 
+func TestBuildFirstRound_WithLanguage(t *testing.T) {
+	b, err := NewBuilder()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	input := FirstRoundInput{
+		Context:     "test",
+		FetchMethod: "read files",
+		FileList:    "main.cpp",
+		Language:    "cpp",
+	}
+
+	result, err := b.BuildFirstRound(input)
+	if err != nil {
+		t.Fatalf("BuildFirstRound with language failed: %v", err)
+	}
+
+	assertContains(t, result, "LANGUAGE-SPECIFIC REVIEW GUIDELINES (C++)")
+	assertContains(t, result, "primarily written in C++")
+	assertContains(t, result, "same weight")
+	assertContains(t, result, "END LANGUAGE-SPECIFIC GUIDELINES")
+}
+
+func TestBuildFirstRound_WithoutLanguage(t *testing.T) {
+	b, err := NewBuilder()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	input := FirstRoundInput{
+		Context:     "test",
+		FetchMethod: "read files",
+		FileList:    "main.go",
+	}
+
+	result, err := b.BuildFirstRound(input)
+	if err != nil {
+		t.Fatalf("BuildFirstRound without language failed: %v", err)
+	}
+
+	assertNotContains(t, result, "LANGUAGE-SPECIFIC REVIEW GUIDELINES")
+}
+
+func TestBuildResume_WithLanguage(t *testing.T) {
+	b, err := NewBuilder()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	input := ResumeInput{
+		Message:          "Fixed F001",
+		PreviousFindings: "[F001] (high/security) main.cpp:42",
+		FetchMethod:      "read files",
+		FileList:         "main.cpp (10 lines)",
+		Language:         "cpp",
+	}
+
+	result, err := b.BuildResume(input)
+	if err != nil {
+		t.Fatalf("BuildResume with language failed: %v", err)
+	}
+
+	assertContains(t, result, "LANGUAGE-SPECIFIC REVIEW GUIDELINES (C++)")
+}
+
+func TestBuildLanguageSection_UnsupportedLanguage(t *testing.T) {
+	_, err := buildLanguageSection("rust")
+	if err == nil {
+		t.Fatal("expected error for unsupported language")
+	}
+}
+
+func TestSupportedLanguageList(t *testing.T) {
+	list := SupportedLanguageList()
+	assertContains(t, list, "cpp")
+}
+
 func assertContains(t *testing.T, s, substr string) {
 	t.Helper()
 	if !strings.Contains(s, substr) {

@@ -15,11 +15,16 @@ type Check struct {
 }
 
 // FormatReviewResult produces XML output for a review/verify round.
-func FormatReviewResult(sessionID string, round int, verdict string, findings []session.Finding, summary session.FindingSummary) string {
+func FormatReviewResult(sessionID string, round int, verdict string, findings []session.Finding, summary session.FindingSummary, language string) string {
 	var b strings.Builder
 
-	fmt.Fprintf(&b, `<xreview-result status="success" action="review" session="%s" round="%d">`+"\n",
-		xmlEscape(sessionID), round)
+	if language != "" {
+		fmt.Fprintf(&b, `<xreview-result status="success" action="review" session="%s" round="%d" language="%s">`+"\n",
+			xmlEscape(sessionID), round, xmlEscape(language))
+	} else {
+		fmt.Fprintf(&b, `<xreview-result status="success" action="review" session="%s" round="%d">`+"\n",
+			xmlEscape(sessionID), round)
+	}
 
 	fmt.Fprintf(&b, `  <verdict>%s</verdict>`+"\n", xmlEscape(verdict))
 

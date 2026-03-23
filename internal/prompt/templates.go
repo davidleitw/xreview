@@ -58,6 +58,20 @@ For each finding, you MUST also provide these fields:
     anything where confidence < 60.
   When in doubt, use "ask".`
 
+// LanguageSectionTemplate wraps language-specific review guidelines appended to prompts.
+const LanguageSectionTemplate = `
+
+===== LANGUAGE-SPECIFIC REVIEW GUIDELINES ({{.DisplayName}}) =====
+
+The files under review are primarily written in {{.DisplayName}}.
+In addition to the general review rules above, you MUST also apply the
+following language-specific guidelines. These carry the same weight
+as CRITICAL_RULES — violations should be reported as findings.
+
+{{.Content}}
+
+===== END LANGUAGE-SPECIFIC GUIDELINES =====`
+
 // ResumeTemplate is the prompt template for follow-up review rounds.
 const ResumeTemplate = `This is a follow-up review. You previously reviewed these files and
 identified the findings listed below. The developer has made changes

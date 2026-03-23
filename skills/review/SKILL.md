@@ -20,6 +20,16 @@ an independent second opinion. If you skip this skill and review code yourself, 
 the purpose — you're reviewing your own work instead of getting an external review.
 </CRITICAL>
 
+## Supported Languages for --language
+
+| Key   | Language |
+|-------|----------|
+| `cpp` | C++      |
+
+If review targets are written in a supported language, add `--language <key>`.
+If unsure or mixed languages, omit `--language` — xreview falls back to general-purpose review.
+Only use keys from the table above.
+
 ## Step 0: Preflight
 
 Run: `xreview preflight`
@@ -94,8 +104,10 @@ generating the review report.
 
 ## Step 2: Run review
 
-Run: `xreview review --files <paths> --context "<structured context>"`
- or: `xreview review --git-uncommitted --context "<structured context>"`
+Run: `xreview review --files <paths> --context "<structured context>"` [--language <key>]
+ or: `xreview review --git-uncommitted --context "<structured context>"` [--language <key>]
+
+Add `--language` only when the review targets match a supported language (see table above).
 
 ## Step 2.5: Verify + Present
 

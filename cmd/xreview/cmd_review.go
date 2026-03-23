@@ -24,6 +24,7 @@ func newReviewCmd() *cobra.Command {
 		fullRescan     bool
 		timeout        int
 		contextStr     string
+		language       string
 	)
 
 	cmd := &cobra.Command{
@@ -45,6 +46,13 @@ func newReviewCmd() *cobra.Command {
 			}
 			if !hasSession && fullRescan {
 				return fmt.Errorf("--full-rescan requires --session")
+			}
+
+			if language != "" {
+				if _, ok := prompt.SupportedLanguages[language]; !ok {
+					return fmt.Errorf("unsupported language %q; supported: %s",
+						language, prompt.SupportedLanguageList())
+				}
 			}
 
 			return nil
@@ -92,7 +100,7 @@ func newReviewCmd() *cobra.Command {
 				}
 				fmt.Println(formatter.FormatReviewResult(
 					result.SessionID, result.Round, result.Verdict,
-					result.Findings, result.Summary,
+					result.Findings, result.Summary, result.Language,
 				))
 				return nil
 			}
@@ -112,6 +120,7 @@ func newReviewCmd() *cobra.Command {
 				TargetMode: targetMode,
 				Context:    contextStr,
 				Timeout:    timeout,
+				Language:   language,
 			})
 			if err != nil {
 				return printErr("review", classifyReviewError(err), err)
@@ -119,7 +128,7 @@ func newReviewCmd() *cobra.Command {
 
 			fmt.Println(formatter.FormatReviewResult(
 				result.SessionID, result.Round, result.Verdict,
-				result.Findings, result.Summary,
+				result.Findings, result.Summary, result.Language,
 			))
 			return nil
 		},
@@ -132,6 +141,7 @@ func newReviewCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&fullRescan, "full-rescan", false, "Start fresh codex session for rescan")
 	cmd.Flags().IntVar(&timeout, "timeout", 180, "Timeout in seconds for codex response")
 	cmd.Flags().StringVar(&contextStr, "context", "", "Structured context describing the change")
+	cmd.Flags().StringVar(&language, "language", "", "Language-specific review guidelines (e.g. cpp)")
 
 	return cmd
 }

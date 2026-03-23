@@ -12,6 +12,7 @@ type ReviewRequest struct {
 	TargetMode string // "files" or "git-uncommitted"
 	Context    string
 	Timeout    int
+	Language   string // language key, e.g. "cpp". Empty = no language-specific guidelines.
 }
 
 // ReviewResult holds the output of a review round.
@@ -21,6 +22,7 @@ type ReviewResult struct {
 	Verdict   string
 	Findings  []session.Finding
 	Summary   session.FindingSummary
+	Language  string
 }
 
 // VerifyRequest holds parameters for a follow-up verification round.
@@ -40,6 +42,7 @@ type VerifyResult struct {
 	Verdict   string
 	Findings  []session.Finding
 	Summary   session.FindingSummary
+	Language  string
 }
 
 // Reviewer abstracts single vs. multi-agent review.

@@ -65,6 +65,7 @@ func (r *SingleReviewer) Review(ctx context.Context, req ReviewRequest) (*Review
 		Context:     req.Context,
 		FetchMethod: buildFetchMethod(req.Targets, req.TargetMode),
 		FileList:    buildFileListSummary(files),
+		Language:    req.Language,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("build prompt: %w", err)
@@ -104,6 +105,7 @@ func (r *SingleReviewer) Review(ctx context.Context, req ReviewRequest) (*Review
 	sess.Round = 1
 	sess.CodexSessionID = execResult.CodexSessionID
 	sess.Findings = codexFindingsToFindings(codexResp.Findings)
+	sess.Language = req.Language
 
 	// 8. Snapshot file checksums for change detection in subsequent rounds
 	snapshots, snapErr := collector.Snapshot(req.Targets, req.TargetMode, r.workdir, r.cfg.IgnorePatterns)
@@ -122,6 +124,7 @@ func (r *SingleReviewer) Review(ctx context.Context, req ReviewRequest) (*Review
 		Verdict:   codexResp.Verdict,
 		Findings:  sess.Findings,
 		Summary:   summary,
+		Language:  req.Language,
 	}, nil
 }
 
@@ -155,6 +158,7 @@ func (r *SingleReviewer) Verify(ctx context.Context, req VerifyRequest) (*Verify
 		FetchMethod:      buildFetchMethod(sess.Targets, sess.TargetMode),
 		FileList:         buildFileListSummary(files),
 		ChangedFiles:     changedFiles,
+		Language:         sess.Language,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("build resume prompt: %w", err)
@@ -218,6 +222,7 @@ func (r *SingleReviewer) Verify(ctx context.Context, req VerifyRequest) (*Verify
 		Verdict:   codexResp.Verdict,
 		Findings:  sess.Findings,
 		Summary:   summary,
+		Language:  sess.Language,
 	}, nil
 }
 

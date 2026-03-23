@@ -13,6 +13,7 @@ type FirstRoundInput struct {
 	Context     string
 	FetchMethod string // git command or file list instruction for Codex to run
 	FileList    string // summary of files (names + line counts)
+	Language    string // language key, e.g. "cpp". Empty = no language section.
 }
 
 // FileChange describes a file that changed between review rounds.
@@ -28,6 +29,7 @@ type ResumeInput struct {
 	FetchMethod      string // git command for Codex to re-read files
 	FileList         string // summary of files involved
 	ChangedFiles     []FileChange
+	Language         string // language key from session. Empty = no language section.
 }
 
 // Builder assembles prompts for codex.
@@ -61,6 +63,13 @@ func (b *builder) BuildFirstRound(input FirstRoundInput) (string, error) {
 	if err := b.firstRound.Execute(&buf, input); err != nil {
 		return "", fmt.Errorf("execute first-round template: %w", err)
 	}
+	if input.Language != "" {
+		section, err := buildLanguageSection(input.Language)
+		if err != nil {
+			return "", err
+		}
+		buf.WriteString(section)
+	}
 	return buf.String(), nil
 }
 
@@ -68,6 +77,43 @@ func (b *builder) BuildResume(input ResumeInput) (string, error) {
 	var buf bytes.Buffer
 	if err := b.resume.Execute(&buf, input); err != nil {
 		return "", fmt.Errorf("execute resume template: %w", err)
+	}
+	if input.Language != "" {
+		section, err := buildLanguageSection(input.Language)
+		if err != nil {
+			return "", err
+		}
+		buf.WriteString(section)
+	}
+	return buf.String(), nil
+}
+
+// languageSectionData holds the data for rendering LanguageSectionTemplate.
+type languageSectionData struct {
+	DisplayName string
+	Content     string
+}
+
+// buildLanguageSection loads the embedded language guidelines and renders the wrapper.
+func buildLanguageSection(lang string) (string, error) {
+	displayName, ok := SupportedLanguages[lang]
+	if !ok {
+		return "", fmt.Errorf("unsupported language %q", lang)
+	}
+	content, err := loadLanguageContent(lang)
+	if err != nil {
+		return "", err
+	}
+	tmpl, err := template.New("language-section").Parse(LanguageSectionTemplate)
+	if err != nil {
+		return "", fmt.Errorf("parse language section template: %w", err)
+	}
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, languageSectionData{
+		DisplayName: displayName,
+		Content:     content,
+	}); err != nil {
+		return "", fmt.Errorf("execute language section template: %w", err)
 	}
 	return buf.String(), nil
 }

@@ -42,7 +42,7 @@ func TestFormatReviewResult_WithFindings(t *testing.T) {
 	}
 	summary := session.FindingSummary{Total: 1, Open: 1}
 
-	result := FormatReviewResult("xr-20260310-abc123", 1, "NEEDS_REVIEW", findings, summary)
+	result := FormatReviewResult("xr-20260310-abc123", 1, "NEEDS_REVIEW", findings, summary, "")
 
 	assertContains(t, result, `status="success"`)
 	assertContains(t, result, `action="review"`)
@@ -64,7 +64,7 @@ func TestFormatReviewResult_WithFindings(t *testing.T) {
 func TestFormatReviewResult_NoFindings(t *testing.T) {
 	summary := session.FindingSummary{Total: 0}
 
-	result := FormatReviewResult("xr-20260310-abc123", 1, "APPROVED", nil, summary)
+	result := FormatReviewResult("xr-20260310-abc123", 1, "APPROVED", nil, summary, "")
 
 	assertContains(t, result, `<verdict>APPROVED</verdict>`)
 	assertContains(t, result, `total="0"`)
@@ -85,7 +85,7 @@ func TestFormatReviewResult_OptionalFields(t *testing.T) {
 	}
 	summary := session.FindingSummary{Total: 1, Open: 1}
 
-	result := FormatReviewResult("s1", 1, "NEEDS_REVIEW", findings, summary)
+	result := FormatReviewResult("s1", 1, "NEEDS_REVIEW", findings, summary, "")
 
 	// Should NOT contain optional elements when empty
 	assertNotContains(t, result, `<suggestion>`)
@@ -213,7 +213,7 @@ func TestFormatReviewResult_EnrichedFields(t *testing.T) {
 	}
 	summary := session.FindingSummary{Total: 1, Open: 1}
 
-	result := FormatReviewResult("xr-test", 1, "REVISE", findings, summary)
+	result := FormatReviewResult("xr-test", 1, "REVISE", findings, summary, "")
 
 	assertContains(t, result, "<trigger>attacker sends id=&#39; OR &#39;1&#39;=&#39;1</trigger>")
 	assertContains(t, result, "<cascade-impact>")
@@ -240,7 +240,7 @@ func TestFormatReviewResult_NoEnrichedFields(t *testing.T) {
 	}
 	summary := session.FindingSummary{Total: 1, Open: 1}
 
-	result := FormatReviewResult("xr-test", 1, "REVISE", findings, summary)
+	result := FormatReviewResult("xr-test", 1, "REVISE", findings, summary, "")
 
 	// Check only the XML portion (before agent-instructions) for absence of enriched tags
 	xmlPart := result
@@ -270,7 +270,7 @@ func TestFormatReviewResult_AlternativesNoRecommended(t *testing.T) {
 	}
 	summary := session.FindingSummary{Total: 1, Open: 1}
 
-	result := FormatReviewResult("xr-test", 1, "REVISE", findings, summary)
+	result := FormatReviewResult("xr-test", 1, "REVISE", findings, summary, "")
 
 	assertContains(t, result, "<fix-alternatives>")
 	assertContains(t, result, `recommended="false">option one</alternative>`)
@@ -295,7 +295,7 @@ func TestFormatReviewResult_AgentInstructions_Present(t *testing.T) {
 	}
 	summary := session.FindingSummary{Total: 2, Open: 2}
 
-	result := FormatReviewResult("xr-test", 1, "REVISE", findings, summary)
+	result := FormatReviewResult("xr-test", 1, "REVISE", findings, summary, "")
 
 	// Agent instructions block must appear after </xreview-result>
 	assertContains(t, result, "</xreview-result>\n\n<agent-instructions>")
@@ -313,7 +313,7 @@ func TestFormatReviewResult_AgentInstructions_Present(t *testing.T) {
 func TestFormatReviewResult_AgentInstructions_Absent_WhenApproved(t *testing.T) {
 	summary := session.FindingSummary{Total: 0, Open: 0}
 
-	result := FormatReviewResult("xr-test", 1, "APPROVED", nil, summary)
+	result := FormatReviewResult("xr-test", 1, "APPROVED", nil, summary, "")
 
 	assertNotContains(t, result, "<agent-instructions>")
 }
@@ -327,7 +327,7 @@ func TestFormatReviewResult_AgentInstructions_Absent_WhenAllFixed(t *testing.T) 
 	}
 	summary := session.FindingSummary{Total: 1, Open: 0, Fixed: 1}
 
-	result := FormatReviewResult("xr-test", 2, "APPROVED", findings, summary)
+	result := FormatReviewResult("xr-test", 2, "APPROVED", findings, summary, "")
 
 	assertNotContains(t, result, "<agent-instructions>")
 }
@@ -341,7 +341,7 @@ func TestFormatReviewResult_AgentInstructions_SeverityCounts(t *testing.T) {
 	}
 	summary := session.FindingSummary{Total: 4, Open: 3, Fixed: 1}
 
-	result := FormatReviewResult("xr-test", 1, "REVISE", findings, summary)
+	result := FormatReviewResult("xr-test", 1, "REVISE", findings, summary, "")
 
 	assertContains(t, result, "High severity: 2")
 	assertContains(t, result, "Auto-fixable: 0, Needs discussion: 3")
@@ -432,7 +432,7 @@ func TestFormatReviewResult_IncludesConfidenceAndFixStrategy(t *testing.T) {
 		},
 	}
 	summary := session.FindingSummary{Total: 1, Open: 1}
-	result := FormatReviewResult("xr-test", 1, "REVISE", findings, summary)
+	result := FormatReviewResult("xr-test", 1, "REVISE", findings, summary, "")
 	assertContains(t, result, `confidence="90"`)
 	assertContains(t, result, `fix-strategy="auto"`)
 }
@@ -446,13 +446,32 @@ func TestFormatReviewResult_AgentInstructionsSimplified(t *testing.T) {
 		},
 	}
 	summary := session.FindingSummary{Total: 1, Open: 1}
-	result := FormatReviewResult("xr-test", 1, "REVISE", findings, summary)
+	result := FormatReviewResult("xr-test", 1, "REVISE", findings, summary, "")
 	assertContains(t, result, "<agent-instructions>")
 	assertContains(t, result, "xr-test")
 	assertContains(t, result, "skill instructions")
 	if strings.Contains(result, "PHASE 1: VERIFY FINDINGS") {
 		t.Error("agent instructions should not contain verbose Phase 1 workflow")
 	}
+}
+
+func TestFormatReviewResult_WithLanguage(t *testing.T) {
+	findings := []session.Finding{
+		{
+			ID: "F001", Severity: "high", Category: "security",
+			Status: "open", File: "main.cpp", Line: 42,
+			Description: "buffer overflow", Confidence: 90, FixStrategy: "auto",
+		},
+	}
+	summary := session.FindingSummary{Total: 1, Open: 1}
+	result := FormatReviewResult("xr-test", 1, "REVISE", findings, summary, "cpp")
+	assertContains(t, result, `language="cpp"`)
+}
+
+func TestFormatReviewResult_WithoutLanguage(t *testing.T) {
+	summary := session.FindingSummary{Total: 0}
+	result := FormatReviewResult("xr-test", 1, "APPROVED", nil, summary, "")
+	assertNotContains(t, result, `language=`)
 }
 
 func assertNotContains(t *testing.T, s, substr string) {
