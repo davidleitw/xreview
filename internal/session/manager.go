@@ -36,10 +36,10 @@ type manager struct {
 	sessionsDir string
 }
 
-// NewManager creates a Manager that stores sessions in the given workdir.
-func NewManager(workdir string) Manager {
+// NewManager creates a Manager that stores sessions in the temp sessions directory.
+func NewManager() Manager {
 	return &manager{
-		sessionsDir: config.SessionsDir(workdir),
+		sessionsDir: config.SessionsDir(),
 	}
 }
 
@@ -65,7 +65,7 @@ func (m *manager) Create(targets []string, targetMode, ctx string, cfg *config.C
 	}
 
 	dir := filepath.Join(m.sessionsDir, id)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, fmt.Errorf("create session dir: %w", err)
 	}
 
@@ -144,7 +144,7 @@ func (m *manager) write(sess *Session) error {
 	}
 
 	path := filepath.Join(m.sessionsDir, sess.SessionID, "session.json")
-	return os.WriteFile(path, data, 0o644)
+	return os.WriteFile(path, data, 0o600)
 }
 
 func generateSessionID() (string, error) {

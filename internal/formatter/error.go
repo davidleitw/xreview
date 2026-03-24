@@ -15,6 +15,7 @@ const (
 	ErrInvalidFlags          = "INVALID_FLAGS"
 	ErrFileNotFound          = "FILE_NOT_FOUND"
 	ErrNotGitRepo            = "NOT_GIT_REPO"
+	ErrIOError               = "IO_ERROR"
 	ErrUpdateFailed          = "UPDATE_FAILED"
 	ErrVersionCheckFailed    = "VERSION_CHECK_FAILED"
 )

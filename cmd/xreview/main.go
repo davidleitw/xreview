@@ -30,7 +30,6 @@ func newRootCmd() *cobra.Command {
 	cmd.AddCommand(newSelfUpdateCmd())
 	cmd.AddCommand(newPreflightCmd())
 	cmd.AddCommand(newReviewCmd())
-	cmd.AddCommand(newReportCmd())
 	cmd.AddCommand(newCleanCmd())
 
 	return cmd

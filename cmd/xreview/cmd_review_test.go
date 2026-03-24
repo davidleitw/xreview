@@ -74,26 +74,26 @@ func TestReviewCmd_FlagValidation(t *testing.T) {
 	}
 }
 
-func TestReportCmd_RequiresSession(t *testing.T) {
-	root := newRootCmd()
-	root.SetArgs([]string{"report"})
-	err := root.Execute()
-	if err == nil {
-		t.Fatal("expected error")
-	}
-	if !strings.Contains(err.Error(), "--session is required") {
-		t.Errorf("unexpected error: %v", err)
-	}
-}
-
-func TestCleanCmd_RequiresSession(t *testing.T) {
+func TestCleanCmd_RequiresSessionOrAll(t *testing.T) {
 	root := newRootCmd()
 	root.SetArgs([]string{"clean"})
 	err := root.Execute()
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	if !strings.Contains(err.Error(), "--session is required") {
+	if !strings.Contains(err.Error(), "--session or --all is required") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestCleanCmd_SessionAndAllMutuallyExclusive(t *testing.T) {
+	root := newRootCmd()
+	root.SetArgs([]string{"clean", "--session", "xr-20260324-abc123", "--all"})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "mutually exclusive") {
 		t.Errorf("unexpected error: %v", err)
 	}
 }

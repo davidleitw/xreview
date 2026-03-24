@@ -171,18 +171,6 @@ func FormatVersionResult(current, latest string, outdated bool) string {
 	)
 }
 
-// FormatReportResult produces XML output for a report generation.
-func FormatReportResult(sessionID, path string, summary session.FindingSummary) string {
-	return fmt.Sprintf(
-		`<xreview-result status="success" action="report" session="%s">`+"\n"+
-			`  <report path="%s" />`+"\n"+
-			`  <summary total="%d" open="%d" fixed="%d" dismissed="%d" />`+"\n"+
-			`</xreview-result>`,
-		xmlEscape(sessionID), xmlEscape(path),
-		summary.Total, summary.Open, summary.Fixed, summary.Dismissed,
-	)
-}
-
 // FormatCleanResult produces XML output for a session cleanup.
 func FormatCleanResult(sessionID string) string {
 	return fmt.Sprintf(
@@ -191,6 +179,13 @@ func FormatCleanResult(sessionID string) string {
 			`</xreview-result>`,
 		xmlEscape(sessionID), xmlEscape(sessionID),
 	)
+}
+
+// FormatCleanAllResult produces XML output for cleaning all sessions.
+func FormatCleanAllResult() string {
+	return `<xreview-result status="success" action="clean">` + "\n" +
+		`  <message>All sessions deleted successfully.</message>` + "\n" +
+		`</xreview-result>`
 }
 
 // xmlEscape escapes special XML characters.

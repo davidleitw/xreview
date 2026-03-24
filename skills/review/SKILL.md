@@ -212,17 +212,24 @@ When the user specifies which findings to fix:
 
 ## Step 5: Finalize
 
-<CRITICAL>
-You MUST invoke the write-report skill here. Do NOT manually run `xreview report`
-or generate the summary yourself. The write-report skill produces a human-readable
-markdown report that is far more useful than a raw table.
-</CRITICAL>
+Produce a detailed summary in the conversation. This summary IS the report — do not save it to a file.
 
-Call the Skill tool:
-- skill: `write-report`
-- args: `<session-id>`
+Cover these sections:
 
-Stop here. The write-report skill handles report generation, saving, and session cleanup.
+1. **Overview** — what was reviewed, how many rounds, overall verdict
+2. **Findings resolved** — for each fixed finding: what the issue was, what was changed and why
+3. **Findings dismissed** — for each: why it was dismissed (false positive, user decision, etc.)
+4. **Findings still open** — for each: why it remains open, recommended next steps
+
+Be thorough — this is the user's record of the review. Include enough detail that someone
+reading the summary can understand every finding and every decision without scrolling back
+through the conversation.
+
+After the summary, clean up the session:
+
+```
+xreview clean --session <session-id>
+```
 
 ## Important notes
 

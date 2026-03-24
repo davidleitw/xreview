@@ -41,9 +41,6 @@ Children: <check name="..." passed="true|false" detail="..." />
 ### <version> (version only)
 Attributes: current, latest, outdated (true|false), update-command
 
-### <report> (report only)
-Attributes: path (file path to generated report)
-
 ## Error Codes
 
 | Code | Meaning |

@@ -168,17 +168,6 @@ func TestFormatVersionResult_UpToDate(t *testing.T) {
 	assertContains(t, result, `update-command=""`)
 }
 
-func TestFormatReportResult(t *testing.T) {
-	summary := session.FindingSummary{Total: 5, Open: 1, Fixed: 3, Dismissed: 1}
-	result := FormatReportResult("xr-20260310-abc", "/tmp/report.md", summary)
-
-	assertContains(t, result, `action="report"`)
-	assertContains(t, result, `session="xr-20260310-abc"`)
-	assertContains(t, result, `path="/tmp/report.md"`)
-	assertContains(t, result, `total="5"`)
-	assertContains(t, result, `fixed="3"`)
-}
-
 func TestFormatCleanResult(t *testing.T) {
 	result := FormatCleanResult("xr-20260310-abc")
 

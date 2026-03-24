@@ -7,9 +7,15 @@ import (
 	"github.com/davidleitw/xreview/internal/config"
 )
 
+func setupTestManager(t *testing.T) Manager {
+	t.Helper()
+	config.SessionsDirOverride = t.TempDir()
+	t.Cleanup(func() { config.SessionsDirOverride = "" })
+	return NewManager()
+}
+
 func TestManager_CreateAndLoad(t *testing.T) {
-	dir := t.TempDir()
-	mgr := NewManager(dir)
+	mgr := setupTestManager(t)
 	cfg := &config.Config{CodexModel: "gpt-5.3-Codex", DefaultTimeout: 600}
 
 	sess, err := mgr.Create([]string{"main.go"}, "files", "test context", cfg)
@@ -41,8 +47,7 @@ func TestManager_CreateAndLoad(t *testing.T) {
 }
 
 func TestManager_Update(t *testing.T) {
-	dir := t.TempDir()
-	mgr := NewManager(dir)
+	mgr := setupTestManager(t)
 	cfg := &config.Config{CodexModel: "gpt-5.3-Codex"}
 
 	sess, _ := mgr.Create([]string{"a.go"}, "files", "", cfg)
@@ -69,8 +74,7 @@ func TestManager_Update(t *testing.T) {
 }
 
 func TestManager_Delete(t *testing.T) {
-	dir := t.TempDir()
-	mgr := NewManager(dir)
+	mgr := setupTestManager(t)
 	cfg := &config.Config{CodexModel: "gpt-5.3-Codex"}
 
 	sess, _ := mgr.Create([]string{"a.go"}, "files", "", cfg)
@@ -86,8 +90,7 @@ func TestManager_Delete(t *testing.T) {
 }
 
 func TestManager_List(t *testing.T) {
-	dir := t.TempDir()
-	mgr := NewManager(dir)
+	mgr := setupTestManager(t)
 	cfg := &config.Config{CodexModel: "gpt-5.3-Codex"}
 
 	mgr.Create([]string{"a.go"}, "files", "", cfg)
@@ -103,8 +106,7 @@ func TestManager_List(t *testing.T) {
 }
 
 func TestManager_LoadNotFound(t *testing.T) {
-	dir := t.TempDir()
-	mgr := NewManager(dir)
+	mgr := setupTestManager(t)
 
 	_, err := mgr.Load("nonexistent")
 	if err == nil {
@@ -113,8 +115,7 @@ func TestManager_LoadNotFound(t *testing.T) {
 }
 
 func TestManager_ListEmpty(t *testing.T) {
-	dir := t.TempDir()
-	mgr := NewManager(dir)
+	mgr := setupTestManager(t)
 
 	ids, err := mgr.List()
 	if err != nil {
@@ -126,8 +127,7 @@ func TestManager_ListEmpty(t *testing.T) {
 }
 
 func TestManager_RoundTrip_EnrichedFindings(t *testing.T) {
-	dir := t.TempDir()
-	mgr := NewManager(dir)
+	mgr := setupTestManager(t)
 	cfg := &config.Config{CodexModel: "gpt-5.3-Codex"}
 
 	sess, err := mgr.Create([]string{"main.go"}, "files", "ctx", cfg)
@@ -189,8 +189,7 @@ func TestManager_RoundTrip_EnrichedFindings(t *testing.T) {
 }
 
 func TestManager_Load_RejectsOldVersion(t *testing.T) {
-	dir := t.TempDir()
-	mgr := NewManager(dir)
+	mgr := setupTestManager(t)
 	cfg := &config.Config{CodexModel: "gpt-5.3-Codex"}
 
 	sess, err := mgr.Create([]string{"a.go"}, "files", "", cfg)
@@ -213,8 +212,7 @@ func TestManager_Load_RejectsOldVersion(t *testing.T) {
 }
 
 func TestManager_Load_RejectsFutureVersion(t *testing.T) {
-	dir := t.TempDir()
-	mgr := NewManager(dir)
+	mgr := setupTestManager(t)
 	cfg := &config.Config{CodexModel: "gpt-5.3-Codex"}
 
 	sess, err := mgr.Create([]string{"a.go"}, "files", "", cfg)
@@ -237,8 +235,7 @@ func TestManager_Load_RejectsFutureVersion(t *testing.T) {
 }
 
 func TestManager_RoundTrip_ConfidenceAndFixStrategy(t *testing.T) {
-	dir := t.TempDir()
-	mgr := NewManager(dir)
+	mgr := setupTestManager(t)
 	cfg := &config.Config{CodexModel: "gpt-5.3-Codex"}
 
 	sess, err := mgr.Create([]string{"main.go"}, "files", "ctx", cfg)

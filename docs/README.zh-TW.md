@@ -17,7 +17,7 @@ xreview 把程式碼審查委託給 Codex（另一個 AI 模型），讓 Claude 
 5. **Claude Code 修正**嚴格按你批准的計畫執行
 6. **Codex 驗證**修正結果，可能發現新問題或重新開啟被駁回的項目
 7. **重複**直到三方達成共識（最多 5 輪）
-8. **產生報告** — 人類可讀的 markdown 報告，總結問題、決策和修復內容
+8. **總結** — Claude Code 在對話中產生詳細的口頭總結，涵蓋所有問題、決策和修復內容
 
 這不是 Claude Code 自己審查自己的程式碼，而是由不同模型提供真正獨立的審查，Claude Code 作為驗證層過濾誤報後再呈現給你。
 
@@ -120,8 +120,8 @@ xreview 是一個獨立的 Go binary，Claude Code 在背後呼叫它：
 | `xreview review --files <paths>` | 執行初始審查 |
 | `xreview review --files <paths> --language <key>` | 使用語言特化規則審查（cpp, go） |
 | `xreview review --session <id> --message "..."` | 恢復驗證輪次 |
-| `xreview report --session <id>` | 產生最終報告 |
-| `xreview clean --session <id>` | 清理 session 資料 |
+| `xreview clean --session <id>` | 清理單一 session |
+| `xreview clean --all` | 清理所有 session |
 | `xreview self-update` | 從 GitHub Releases 更新到最新版本 |
 | `xreview version` | 顯示版本 |
 
@@ -170,19 +170,16 @@ Claude Code (host)          xreview (CLI)           Codex (reviewer)
      |                          |<-- verify (JSON) ------|
      |<-- verify (XML) --------|                        |
      |                          |                        |
-     |  [write-report skill]    |                        |
-     |-- report --------------->|                        |
-     |<-- session 資料 ---------|                        |
-     |  [產生 markdown 報告]     |                        |
+     |  [口頭總結]               |                        |
+     |-- clean ---------------->|                        |
 ```
 
 - xreview 在 stdout 輸出 XML 供 Claude Code skill 消費
 - Codex 自行取得程式碼（以唯讀模式執行 `git diff` 或讀取檔案）
 - Claude Code 獨立驗證每個問題後才呈現給使用者
-- 內部狀態以 JSON 儲存在 `.xreview/sessions/`
+- Session 狀態以 JSON 儲存在 `/tmp/xreview/sessions/`（暫時性）
 - 多輪審查：透過 `--resume <session-id>` 恢復 codex session
 - 檔案快照（SHA-256 checksum）追蹤每輪之間的變動 — xreview 偵測哪些檔案有修改並通知 Codex 重新讀取，確保審查永遠是基於最新程式碼
-- 人類可讀的 markdown 報告由 write-report skill 產生
 
 ## 未來方向
 
@@ -208,11 +205,8 @@ rm "$(which xreview)"
 # 移除版本快取
 rm -rf ~/.cache/xreview
 
-# 移除 session 資料（可選）
-# 每次 review 會在專案根目錄建立 .xreview/ 資料夾。
-# 正常流程結束時 xreview 會詢問是否清除。
-# 如果當時跳過了，手動刪除即可：
-rm -rf /path/to/your/project/.xreview
+# 移除 session 資料（可選，存放在 /tmp）
+rm -rf /tmp/xreview
 ```
 
 ## 授權

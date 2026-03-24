@@ -10,9 +10,12 @@ const (
 	DefaultCodexModel = "gpt-5.3-codex"
 	DefaultTimeout    = 600
 	ConfigFileName    = "config.json"
-	SessionsDirName   = "sessions"
 	XReviewDirName    = ".xreview"
 )
+
+// SessionsDirOverride allows tests to redirect session storage to a temp directory.
+// Production code should never set this.
+var SessionsDirOverride string
 
 // Config holds project-level xreview configuration from .xreview/config.json.
 type Config struct {
@@ -58,7 +61,11 @@ func Load(workdir string) (*Config, error) {
 	return cfg, nil
 }
 
-// SessionsDir returns the path to .xreview/sessions/ under the given workdir.
-func SessionsDir(workdir string) string {
-	return filepath.Join(workdir, XReviewDirName, SessionsDirName)
+// SessionsDir returns the path to the sessions directory.
+// Sessions are stored in /tmp/xreview/sessions/ (ephemeral by design).
+func SessionsDir() string {
+	if SessionsDirOverride != "" {
+		return SessionsDirOverride
+	}
+	return filepath.Join(os.TempDir(), "xreview", "sessions")
 }

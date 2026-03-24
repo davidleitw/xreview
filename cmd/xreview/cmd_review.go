@@ -79,7 +79,7 @@ func newReviewCmd() *cobra.Command {
 				codex.NewRunner(),
 				builder,
 				parser.NewParser(),
-				session.NewManager(flagWorkdir),
+				session.NewManager(),
 				collector.NewCollector(cfg, flagWorkdir),
 				cfg,
 				flagWorkdir,
