@@ -11,6 +11,7 @@ import (
 // SupportedLanguages maps language keys (used in --language flag) to display names.
 var SupportedLanguages = map[string]string{
 	"cpp": "C++",
+	"go":  "Go",
 }
 
 // SupportedLanguageList returns a comma-separated list of supported language keys.

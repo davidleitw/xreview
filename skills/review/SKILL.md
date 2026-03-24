@@ -25,6 +25,7 @@ the purpose — you're reviewing your own work instead of getting an external re
 | Key   | Language |
 |-------|----------|
 | `cpp` | C++      |
+| `go`  | Go       |
 
 If review targets are written in a supported language, add `--language <key>`.
 If unsure or mixed languages, omit `--language` — xreview falls back to general-purpose review.

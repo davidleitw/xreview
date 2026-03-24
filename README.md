@@ -73,8 +73,9 @@ xreview supports language-aware review via `--language`. When the skill detects 
 | Language | Key | Guidelines |
 |----------|-----|------------|
 | C++ | `cpp` | ISO C++ Core Guidelines — memory safety, UB, concurrency, exception safety, ownership, class design |
+| Go | `go` | Effective Go + Go Code Review Comments — goroutine safety, data race, resource leak, error handling, concurrency patterns |
 
-Unsupported languages fall back to general-purpose review (same behavior as without the flag). More languages coming soon.
+Unsupported languages fall back to general-purpose review (same behavior as without the flag).
 
 ### The Three-Party Loop
 
@@ -117,7 +118,7 @@ xreview ships as a standalone Go binary that Claude Code calls under the hood:
 |---------|---------|
 | `xreview preflight` | Check environment (codex installed, API key, version, updates) |
 | `xreview review --files <paths>` | Run initial review |
-| `xreview review --files <paths> --language cpp` | Review with language-specific guidelines |
+| `xreview review --files <paths> --language <key>` | Review with language-specific guidelines (cpp, go) |
 | `xreview review --session <id> --message "..."` | Resume for verification round |
 | `xreview report --session <id>` | Generate final report |
 | `xreview clean --session <id>` | Clean up session data |
@@ -192,7 +193,7 @@ See [Roadmap & Design](docs/specs/2026-03-17-roadmap-next-generation-review.md) 
 - **Multi-angle review** — dispatch multiple parallel Codex reviews, each focused on a different concern (semantic consistency, lifecycle naming, bugs/security), then merge and deduplicate findings. Claude Code decides when multi-angle is warranted based on code complexity.
 - **Design plan review** — review implementation plans and design docs before execution, checking for feasibility issues, missing edge cases, and architectural conflicts with existing code.
 - **Multi-model review** — run the same code through independent reviewers (Codex, Gemini, local models) and cross-validate findings. Different models have different blind spots; cross-model consensus yields higher-confidence findings.
-- **More language-specific guidelines** — `--language` currently supports C++ (ISO Core Guidelines). More languages (Go, Rust, TypeScript, Python) planned.
+- **More language-specific guidelines** — `--language` currently supports C++ and Go. More languages (Rust, TypeScript, Python) planned.
 - **Auto-fix mode** — fully autonomous review-and-fix cycle for vibe coding workflows, requiring zero user interaction until completion.
 
 ## Uninstall
