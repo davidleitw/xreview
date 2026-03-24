@@ -113,7 +113,12 @@ func (r *runner) Exec(ctx context.Context, req ExecRequest) (*ExecResult, error)
 			return result, fmt.Errorf("codex CLI is not installed. Please install it: npm install -g @openai/codex")
 		}
 		if ctx.Err() == context.DeadlineExceeded {
-			return result, fmt.Errorf("codex did not respond within %s. The review may be too large or there may be a network issue. Try with --timeout <higher value> or fewer files", req.Timeout)
+			return result, fmt.Errorf(
+				"codex did not respond within %s (default: 10m). "+
+					"Try --timeout 15m or --timeout 20m for large reviews, "+
+					"or reduce the number of files",
+				req.Timeout,
+			)
 		}
 		return result, fmt.Errorf("codex exited with error: %w\nstderr: %s", err, strings.TrimSpace(stderr.String()))
 	}

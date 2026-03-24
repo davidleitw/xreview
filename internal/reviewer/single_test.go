@@ -150,7 +150,7 @@ func TestReview_HappyPath(t *testing.T) {
 		},
 	}
 	bldr := &mockBuilder{}
-	cfg := &config.Config{CodexModel: "gpt-5.3-Codex", DefaultTimeout: 180}
+	cfg := &config.Config{CodexModel: "gpt-5.3-Codex", DefaultTimeout: 600}
 
 	r := NewSingleReviewer(runner, bldr, psr, mgr, coll, cfg, "/tmp/test-workdir")
 
@@ -196,7 +196,7 @@ func TestReview_HappyPath(t *testing.T) {
 func TestReview_CollectorError(t *testing.T) {
 	mgr := newMockManager()
 	coll := &mockCollector{err: fmt.Errorf("no files found")}
-	cfg := &config.Config{CodexModel: "gpt-5.3-Codex", DefaultTimeout: 180}
+	cfg := &config.Config{CodexModel: "gpt-5.3-Codex", DefaultTimeout: 600}
 
 	r := NewSingleReviewer(&mockRunner{}, &mockBuilder{}, &mockParser{parseFn: nil}, mgr, coll, cfg, "/tmp/test-workdir")
 
@@ -219,7 +219,7 @@ func TestReview_CodexError(t *testing.T) {
 			return nil, fmt.Errorf("codex timed out")
 		},
 	}
-	cfg := &config.Config{CodexModel: "gpt-5.3-Codex", DefaultTimeout: 180}
+	cfg := &config.Config{CodexModel: "gpt-5.3-Codex", DefaultTimeout: 600}
 
 	r := NewSingleReviewer(runner, &mockBuilder{}, &mockParser{parseFn: nil}, mgr, coll, cfg, "/tmp/test-workdir")
 
@@ -274,7 +274,7 @@ func TestVerify_HappyPath(t *testing.T) {
 			}, nil
 		},
 	}
-	cfg := &config.Config{CodexModel: "gpt-5.3-Codex", DefaultTimeout: 180}
+	cfg := &config.Config{CodexModel: "gpt-5.3-Codex", DefaultTimeout: 600}
 
 	r := NewSingleReviewer(runner, &mockBuilder{}, psr, mgr, coll, cfg, "/tmp/test-workdir")
 
@@ -337,7 +337,7 @@ func TestVerify_FullRescan(t *testing.T) {
 			return &session.CodexResponse{Verdict: "APPROVED", Summary: "clean"}, nil
 		},
 	}
-	cfg := &config.Config{CodexModel: "gpt-5.3-Codex", DefaultTimeout: 180}
+	cfg := &config.Config{CodexModel: "gpt-5.3-Codex", DefaultTimeout: 600}
 
 	r := NewSingleReviewer(runner, &mockBuilder{}, psr, mgr, coll, cfg, "/tmp/test-workdir")
 
@@ -353,7 +353,7 @@ func TestVerify_FullRescan(t *testing.T) {
 
 func TestVerify_SessionNotFound(t *testing.T) {
 	mgr := newMockManager()
-	cfg := &config.Config{CodexModel: "gpt-5.3-Codex", DefaultTimeout: 180}
+	cfg := &config.Config{CodexModel: "gpt-5.3-Codex", DefaultTimeout: 600}
 
 	r := NewSingleReviewer(&mockRunner{}, &mockBuilder{}, &mockParser{}, mgr, &mockCollector{}, cfg, "/tmp/test-workdir")
 
@@ -573,7 +573,7 @@ func TestReview_EnrichedFieldsEndToEnd(t *testing.T) {
 			}, nil
 		},
 	}
-	cfg := &config.Config{CodexModel: "gpt-5.3-Codex", DefaultTimeout: 180}
+	cfg := &config.Config{CodexModel: "gpt-5.3-Codex", DefaultTimeout: 600}
 
 	r := NewSingleReviewer(runner, &mockBuilder{}, psr, mgr, coll, cfg, "/tmp/test-workdir")
 
@@ -687,7 +687,7 @@ func TestReview_NoFileContentInPrompt(t *testing.T) {
 			return &session.CodexResponse{Verdict: "APPROVED"}, nil
 		},
 	}
-	cfg := &config.Config{CodexModel: "gpt-5.3-Codex", DefaultTimeout: 180}
+	cfg := &config.Config{CodexModel: "gpt-5.3-Codex", DefaultTimeout: 600}
 
 	r := NewSingleReviewer(runner, bldr, psr, mgr, coll, cfg, "/tmp/test-workdir")
 
@@ -741,7 +741,7 @@ func TestReview_GitUncommitted_UseGitDiff(t *testing.T) {
 			return &session.CodexResponse{Verdict: "APPROVED"}, nil
 		},
 	}
-	cfg := &config.Config{CodexModel: "gpt-5.3-Codex", DefaultTimeout: 180}
+	cfg := &config.Config{CodexModel: "gpt-5.3-Codex", DefaultTimeout: 600}
 
 	r := NewSingleReviewer(runner, bldr, psr, mgr, coll, cfg, "/tmp/test-workdir")
 

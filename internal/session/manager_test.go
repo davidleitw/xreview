@@ -10,7 +10,7 @@ import (
 func TestManager_CreateAndLoad(t *testing.T) {
 	dir := t.TempDir()
 	mgr := NewManager(dir)
-	cfg := &config.Config{CodexModel: "gpt-5.3-Codex", DefaultTimeout: 180}
+	cfg := &config.Config{CodexModel: "gpt-5.3-Codex", DefaultTimeout: 600}
 
 	sess, err := mgr.Create([]string{"main.go"}, "files", "test context", cfg)
 	if err != nil {

@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/davidleitw/xreview/internal/codex"
 	"github.com/davidleitw/xreview/internal/collector"
@@ -22,7 +24,7 @@ func newReviewCmd() *cobra.Command {
 		sessionID      string
 		message        string
 		fullRescan     bool
-		timeout        int
+		timeout        string
 		contextStr     string
 		language       string
 	)
@@ -58,6 +60,11 @@ func newReviewCmd() *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			timeoutSecs, err := parseDuration(timeout)
+			if err != nil {
+				return printErr("review", formatter.ErrInvalidFlags, err)
+			}
+
 			cfg, err := config.Load(flagWorkdir)
 			if err != nil {
 				return printErr("review", formatter.ErrInvalidFlags, err)
@@ -83,7 +90,7 @@ func newReviewCmd() *cobra.Command {
 					SessionID:  sessionID,
 					Message:    message,
 					FullRescan: fullRescan,
-					Timeout:    timeout,
+					Timeout:    timeoutSecs,
 				}
 
 				// Pass extra files/git targets if provided
@@ -119,7 +126,7 @@ func newReviewCmd() *cobra.Command {
 				Targets:    targets,
 				TargetMode: targetMode,
 				Context:    contextStr,
-				Timeout:    timeout,
+				Timeout:    timeoutSecs,
 				Language:   language,
 			})
 			if err != nil {
@@ -139,7 +146,7 @@ func newReviewCmd() *cobra.Command {
 	cmd.Flags().StringVar(&sessionID, "session", "", "Session ID for continuing a review")
 	cmd.Flags().StringVar(&message, "message", "", "Message describing fixes or dismissals")
 	cmd.Flags().BoolVar(&fullRescan, "full-rescan", false, "Start fresh codex session for rescan")
-	cmd.Flags().IntVar(&timeout, "timeout", 180, "Timeout in seconds for codex response")
+	cmd.Flags().StringVar(&timeout, "timeout", "10m", "Timeout for codex response (e.g. 5m, 10m30s, 300)")
 	cmd.Flags().StringVar(&contextStr, "context", "", "Structured context describing the change")
 	cmd.Flags().StringVar(&language, "language", "", "Language-specific review guidelines (e.g. cpp)")
 
@@ -155,6 +162,26 @@ func splitTargets(s string) []string {
 		}
 	}
 	return targets
+}
+
+// parseDuration parses a timeout string. Accepts Go duration format ("5m", "10m30s")
+// or plain integer (treated as seconds for backward compatibility).
+func parseDuration(s string) (int, error) {
+	if secs, err := strconv.Atoi(s); err == nil {
+		if secs <= 0 {
+			return 0, fmt.Errorf("timeout must be positive, got %d", secs)
+		}
+		return secs, nil
+	}
+	d, err := time.ParseDuration(s)
+	if err != nil {
+		return 0, fmt.Errorf("invalid timeout %q: use seconds (e.g. 300) or duration (e.g. 5m, 10m30s)", s)
+	}
+	secs := int(d.Seconds())
+	if secs <= 0 {
+		return 0, fmt.Errorf("timeout must be positive, got %s", s)
+	}
+	return secs, nil
 }
 
 // classifyReviewError maps reviewer errors to the appropriate error code

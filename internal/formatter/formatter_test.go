@@ -8,12 +8,12 @@ import (
 )
 
 func TestFormatError(t *testing.T) {
-	result := FormatError("review", ErrCodexTimeout, "codex did not respond within 180 seconds")
+	result := FormatError("review", ErrCodexTimeout, "codex did not respond within 10m0s (default: 10m)")
 
 	assertContains(t, result, `status="error"`)
 	assertContains(t, result, `action="review"`)
 	assertContains(t, result, `code="CODEX_TIMEOUT"`)
-	assertContains(t, result, "codex did not respond within 180 seconds")
+	assertContains(t, result, "codex did not respond within 10m0s (default: 10m)")
 }
 
 func TestFormatError_XMLEscape(t *testing.T) {

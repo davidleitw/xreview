@@ -8,7 +8,7 @@ import (
 
 const (
 	DefaultCodexModel = "gpt-5.3-codex"
-	DefaultTimeout    = 180
+	DefaultTimeout    = 600
 	ConfigFileName    = "config.json"
 	SessionsDirName   = "sessions"
 	XReviewDirName    = ".xreview"
