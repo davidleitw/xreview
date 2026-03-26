@@ -1,25 +1,25 @@
 # xreview
 
-Agent-native 程式碼審查引擎，專為 Claude Code 設計，由 Codex 驅動。
+Agent-native 程式碼審查引擎，支援 Claude Code 與 Codex CLI，由 Codex 驅動。
 
-xreview 把程式碼審查委託給 Codex（另一個 AI 模型），讓 Claude Code 獲得獨立的第二意見。它協調三方審查迴圈：**Codex 審查、Claude Code 修正、你做決定。**
+xreview 把程式碼審查委託給 Codex（另一個 AI 模型），讓你的 coding agent 獲得獨立的第二意見。它協調三方審查迴圈：**Codex 審查、你的 agent 驗證、你做決定。**
 
 **[English README](../README.md)**
 
 ## 運作方式
 
-當你請 Claude Code 審查程式碼時，xreview skill 會自動接手：
+當你請你的 coding agent 審查程式碼時，xreview skill 會自動接手：
 
 1. **Codex 審查**你的程式碼，回報發現的問題（bug、安全漏洞、邏輯錯誤）
-2. **Claude Code 獨立驗證**每個問題 — 實際讀取原始碼，確認或挑戰可能的誤報，透過與 Codex 討論來過濾 false positive
-3. **Claude Code 呈現**修復計畫（僅包含已驗證的問題）— 觸發條件、影響、連鎖影響和修復方案
+2. **你的 agent 獨立驗證**每個問題 — 實際讀取原始碼，確認或挑戰可能的誤報，透過與 Codex 討論來過濾 false positive
+3. **你的 agent 呈現**修復計畫（僅包含已驗證的問題）— 觸發條件、影響、連鎖影響和修復方案
 4. **你來決定** — 全部按推薦修、只修高嚴重度、或逐條調整
-5. **Claude Code 修正**嚴格按你批准的計畫執行
+5. **你的 agent 修正**嚴格按你批准的計畫執行
 6. **Codex 驗證**修正結果，可能發現新問題或重新開啟被駁回的項目
 7. **重複**直到三方達成共識（最多 5 輪）
-8. **總結** — Claude Code 在對話中產生詳細的口頭總結，涵蓋所有問題、決策和修復內容
+8. **總結** — 你的 agent 在對話中產生詳細的口頭總結，涵蓋所有問題、決策和修復內容
 
-這不是 Claude Code 自己審查自己的程式碼，而是由不同模型提供真正獨立的審查，Claude Code 作為驗證層過濾誤報後再呈現給你。
+這不是你的 agent 自己審查自己的程式碼，而是由不同模型提供真正獨立的審查，你的 agent 作為驗證層過濾誤報後再呈現給你。
 
 ## 安裝
 
@@ -32,6 +32,25 @@ xreview 把程式碼審查委託給 Codex（另一個 AI 模型），讓 Claude 
 /plugin install xreview@xreview-marketplace
 ```
 
+### Codex CLI
+
+將以下指令貼到 Codex CLI 對話中：
+
+```
+Fetch and follow instructions from https://raw.githubusercontent.com/davidleitw/xreview/master/.codex/INSTALL.md
+```
+
+或手動安裝：
+
+```bash
+# 安裝 binary
+curl -fsSL https://raw.githubusercontent.com/davidleitw/xreview/master/scripts/install.sh | bash
+
+# 安裝 skill
+mkdir -p ~/.agents/skills/xreview
+curl -fsSL -o ~/.agents/skills/xreview/SKILL.md https://raw.githubusercontent.com/davidleitw/xreview/master/.agents/skills/xreview/SKILL.md
+```
+
 ### 前置需求
 
 - 安裝並認證 [Codex CLI](https://github.com/openai/codex)（`npm install -g @openai/codex`）
@@ -39,23 +58,19 @@ xreview 把程式碼審查委託給 Codex（另一個 AI 模型），讓 Claude 
 
 ## 使用方式
 
-直接請 Claude Code 審查程式碼：
+直接請你的 coding agent 審查：
 
 ```
-幫我 review 這段程式碼
+用 xreview 檢查這段程式碼有沒有 bug 和安全問題
 ```
 
 或指定檔案：
 
 ```
-Review store/db.go 和 handler/exec.go，檢查安全漏洞
+用 xreview review store/db.go 和 handler/exec.go，檢查安全漏洞
 ```
 
-xreview skill 會自動觸發。也可以直接呼叫：
-
-```
-/xreview
-```
+xreview skill 會自動觸發。在 Claude Code 中也可以直接用 `/xreview` 呼叫。
 
 ### 可以抓到什麼
 
@@ -112,7 +127,7 @@ xreview self-update
 
 ## CLI 參考
 
-xreview 是一個獨立的 Go binary，Claude Code 在背後呼叫它：
+xreview 是一個獨立的 Go binary，你的 coding agent 在背後呼叫它：
 
 | 指令 | 用途 |
 |------|------|
@@ -144,9 +159,10 @@ claude --plugin-dir .
 ## 架構
 
 ```
-Claude Code (host)          xreview (CLI)           Codex (reviewer)
+Host Agent                  xreview (CLI)           Codex (reviewer)
+(Claude Code / Codex CLI)
      |                          |                        |
-     |-- /xreview skill ------->|                        |
+     |-- review request ------->|                        |
      |                          |-- codex exec --------->|
      |                          |   (Codex 自行讀取程式碼  |
      |                          |    透過 git diff/檔案)   |
@@ -174,11 +190,11 @@ Claude Code (host)          xreview (CLI)           Codex (reviewer)
      |-- clean ---------------->|                        |
 ```
 
-- xreview 在 stdout 輸出 XML 供 Claude Code skill 消費
+- xreview 在 stdout 輸出 XML 供 skill 消費
 - Codex 自行取得程式碼（以唯讀模式執行 `git diff` 或讀取檔案）
-- Claude Code 獨立驗證每個問題後才呈現給使用者
+- 你的 coding agent 獨立驗證每個問題後才呈現給使用者
 - Session 狀態以 JSON 儲存在 `/tmp/xreview/sessions/`（暫時性）
-- 多輪審查：透過 `--resume <session-id>` 恢復 codex session
+- 多輪審查：透過 `--session <session-id>` 恢復 codex session
 - 檔案快照（SHA-256 checksum）追蹤每輪之間的變動 — xreview 偵測哪些檔案有修改並通知 Codex 重新讀取，確保審查永遠是基於最新程式碼
 
 ## 未來方向
@@ -190,13 +206,19 @@ Claude Code (host)          xreview (CLI)           Codex (reviewer)
 
 ## 移除
 
-從 Claude Code 移除 plugin：
+### Claude Code
 
 ```
 /plugin uninstall xreview
 ```
 
-然後清除 binary 和快取資料：
+### Codex CLI
+
+```bash
+rm -rf ~/.agents/skills/xreview
+```
+
+### 清除 binary 和快取資料
 
 ```bash
 # 移除 binary（確認你的安裝路徑）

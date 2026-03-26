@@ -1,25 +1,25 @@
 # xreview
 
-Agent-native code review engine for Claude Code, powered by Codex.
+Agent-native code review engine for Claude Code and Codex CLI, powered by Codex.
 
-xreview delegates code review to Codex (a separate AI model) so Claude Code gets an independent second opinion. It orchestrates a three-party review loop: **Codex reviews, Claude Code fixes, you decide.**
+xreview delegates code review to Codex (a separate AI model) so your coding agent gets an independent second opinion. It orchestrates a three-party review loop: **Codex reviews, your agent verifies, you decide.**
 
 **[中文版 README](docs/README.zh-TW.md)**
 
 ## How It Works
 
-When you ask Claude Code to review your code, the xreview skill takes over:
+When you ask your coding agent to review your code, the xreview skill takes over:
 
 1. **Codex reviews** your code and reports findings (bugs, security issues, logic errors)
-2. **Claude Code verifies** each finding independently — reads the actual source code, confirms or challenges false positives by discussing with Codex
-3. **Claude Code presents** a Fix Plan with only verified findings — trigger, impact, cascade, and fix options
+2. **Your agent verifies** each finding independently — reads the actual source code, confirms or challenges false positives by discussing with Codex
+3. **Your agent presents** a Fix Plan with only verified findings — trigger, impact, cascade, and fix options
 4. **You decide** — approve all recommended fixes, pick by severity, or adjust per finding
-5. **Claude Code fixes** strictly per your approved plan
+5. **Your agent fixes** strictly per your approved plan
 6. **Codex verifies** the fixes in a follow-up round, may find new issues or reopen dismissed ones
 7. **Repeat** until all parties agree (or 5 rounds max)
-8. **Summary** — Claude Code produces a detailed verbal summary of all findings, decisions, and fixes
+8. **Summary** — your agent produces a detailed verbal summary of all findings, decisions, and fixes
 
-This isn't Claude Code reviewing its own work. It's a genuinely independent review from a different model, with Claude Code acting as a verification layer that filters out false positives before presenting to you.
+This isn't your agent reviewing its own work. It's a genuinely independent review from a different model, with your agent acting as a verification layer that filters out false positives before presenting to you.
 
 ## Installation
 
@@ -32,6 +32,25 @@ Register the marketplace and install:
 /plugin install xreview@xreview-marketplace
 ```
 
+### Codex CLI
+
+Paste this to your Codex CLI session:
+
+```
+Fetch and follow instructions from https://raw.githubusercontent.com/davidleitw/xreview/master/.codex/INSTALL.md
+```
+
+Or install manually:
+
+```bash
+# Install binary
+curl -fsSL https://raw.githubusercontent.com/davidleitw/xreview/master/scripts/install.sh | bash
+
+# Install skill
+mkdir -p ~/.agents/skills/xreview
+curl -fsSL -o ~/.agents/skills/xreview/SKILL.md https://raw.githubusercontent.com/davidleitw/xreview/master/.agents/skills/xreview/SKILL.md
+```
+
 ### Prerequisites
 
 - [Codex CLI](https://github.com/openai/codex) installed and authenticated (`npm install -g @openai/codex`)
@@ -39,23 +58,19 @@ Register the marketplace and install:
 
 ## Usage
 
-Just ask Claude Code to review your code:
+Just ask your coding agent to review:
 
 ```
-Review my code for bugs and security issues
+Use xreview to check my code for bugs and security issues
 ```
 
 Or be specific about which files:
 
 ```
-Review store/db.go and handler/exec.go for security vulnerabilities
+Use xreview to review store/db.go and handler/exec.go for security vulnerabilities
 ```
 
-The xreview skill triggers automatically. You can also invoke it directly:
-
-```
-/xreview
-```
+The xreview skill triggers automatically. In Claude Code, you can also invoke it directly with `/xreview`.
 
 ### What It Catches
 
@@ -93,7 +108,7 @@ Impact: attacker can read, modify, or delete any data in the database
 ```
 
 - **All findings presented at once** — you see the full picture before any code changes
-- **Multiple fix options per finding** — Claude Code lists alternatives with effort levels; you pick
+- **Multiple fix options per finding** — your agent lists alternatives with effort levels; you pick
 - **Every finding includes "Don't fix"** — you always have the final say
 
 After all findings are addressed, Codex verifies the fixes. If it disagrees with a dismissal or finds an incomplete fix, the loop continues.
@@ -112,7 +127,7 @@ xreview self-update
 
 ## CLI Reference
 
-xreview ships as a standalone Go binary that Claude Code calls under the hood:
+xreview ships as a standalone Go binary that your coding agent calls under the hood:
 
 | Command | Purpose |
 |---------|---------|
@@ -144,9 +159,10 @@ This loads `skills/` from the repo root via `.claude-plugin/plugin.json`. Use `/
 ## Architecture
 
 ```
-Claude Code (host)          xreview (CLI)           Codex (reviewer)
+Host Agent                  xreview (CLI)           Codex (reviewer)
+(Claude Code / Codex CLI)
      |                          |                        |
-     |-- /xreview skill ------->|                        |
+     |-- review request ------->|                        |
      |                          |-- codex exec --------->|
      |                          |   (Codex reads code    |
      |                          |    via git diff/files)  |
@@ -175,19 +191,19 @@ Claude Code (host)          xreview (CLI)           Codex (reviewer)
      |-- clean ---------------->|                        |
 ```
 
-- xreview outputs XML on stdout for Claude Code skill consumption
+- xreview outputs XML on stdout for skill consumption
 - Codex fetches code itself (runs `git diff` or reads files in read-only mode)
-- Claude Code independently verifies each finding before presenting to user
+- Your coding agent independently verifies each finding before presenting to user
 - Session state stored as JSON in `/tmp/xreview/sessions/` (ephemeral)
-- Multi-round: codex session resume via `--resume <session-id>`
+- Multi-round: codex session resume via `--session <session-id>`
 - File snapshot (SHA-256 checksums) tracks changes between rounds — xreview detects which files changed and tells Codex to re-read them, ensuring reviews always evaluate the latest code
 
 ## Future Work
 
 See [Roadmap & Design](docs/specs/2026-03-17-roadmap-next-generation-review.md) for the full plan. Key directions:
 
-- **Context engineering** — structured context files and focused review angles, letting Claude Code prepare architectural context (symbol cross-references, call chains, data structure shapes) before Codex reviews. Solves the "semantic gap" where code works correctly but communicates intent poorly.
-- **Multi-angle review** — dispatch multiple parallel Codex reviews, each focused on a different concern (semantic consistency, lifecycle naming, bugs/security), then merge and deduplicate findings. Claude Code decides when multi-angle is warranted based on code complexity.
+- **Context engineering** — structured context files and focused review angles, letting your agent prepare architectural context (symbol cross-references, call chains, data structure shapes) before Codex reviews. Solves the "semantic gap" where code works correctly but communicates intent poorly.
+- **Multi-angle review** — dispatch multiple parallel Codex reviews, each focused on a different concern (semantic consistency, lifecycle naming, bugs/security), then merge and deduplicate findings. Your agent decides when multi-angle is warranted based on code complexity.
 - **Design plan review** — review implementation plans and design docs before execution, checking for feasibility issues, missing edge cases, and architectural conflicts with existing code.
 - **Multi-model review** — run the same code through independent reviewers (Codex, Gemini, local models) and cross-validate findings. Different models have different blind spots; cross-model consensus yields higher-confidence findings.
 - **More language-specific guidelines** — `--language` currently supports C++ and Go. More languages (Rust, TypeScript, Python) planned.
@@ -195,13 +211,19 @@ See [Roadmap & Design](docs/specs/2026-03-17-roadmap-next-generation-review.md) 
 
 ## Uninstall
 
-Remove the plugin from Claude Code:
+### Claude Code
 
 ```
 /plugin uninstall xreview
 ```
 
-Then clean up the binary and cached data:
+### Codex CLI
+
+```bash
+rm -rf ~/.agents/skills/xreview
+```
+
+### Clean up binary and cached data
 
 ```bash
 # Remove binary (check which location applies)
